@@ -8,6 +8,6 @@ setup(
   author='JIN Zhe',
   author_email='thejinzhe@gmail.com',
   license='unlicense',
-  packages=['jinlib'],
+  packages=['.'],
   zip_safe=False
 )
