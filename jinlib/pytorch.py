@@ -31,27 +31,43 @@ def freeze(net):
 
 def get_nn(name: str, kwargs: dict):
   '''
-  Return nn component
+  Return torch.nn attribute
   '''
-  if hasattr(nn, name):  # if component exists in torch.nn
-    component = getattr(nn, choice)
-    return component(**kwargs)
+  if hasattr(torch.nn, name):  # if attribute exists in torch.nn
+    attribute = getattr(torch.nn, name)
+    return attribute(**kwargs)
   else:
-    raise ValueError(f'{name} does not exist in torch.nn!')
+    raise AttributeError('Attribute \'{}\' does not exist in torch.nn!'.format(name))
 
 def get_activation(choice: str, kwargs: dict):
   '''
   Return activation of choice
-  Alias for `get_nn`
+  Semantic wrapper for `get_nn`
   '''
-  return get_nn(choice, kwargs)
+  try:
+    return get_nn(choice, kwargs)
+  except AttributeError:
+    raise ValueError('Unknown activation choice \'{}\'!'.format(choice))
 
 def get_layer(choice: str, kwargs: dict):
   '''
   Return layer of choice
-  Alias for `get_nn`
+  Semantic wrapper for `get_nn`
   '''
-  return get_nn(choice, kwargs)
+  try:
+    return get_nn(choice, kwargs)
+  except AttributeError:
+    raise ValueError('Unknown layer choice \'{}\'!'.format(choice))
+
+def get_loss_fn(choice: str, kwargs: dict):
+  '''
+  Return the loss function of choice
+  Semantic wrapper for `get_nn`
+  '''
+  try:
+    return get_nn(choice, kwargs)
+  except AttributeError:
+    raise ValueError('Unknown loss function choice \'{}\'!'.format(choice))
 
 def get_optimizer(choice: str, kwargs: dict, model: torch.nn.Module):
   '''
@@ -75,19 +91,6 @@ def get_subset_loader(dataset, sample_indices, batch_size, shuffle, transform=No
     drop_last=drop_last,
     num_workers=num_workers
   )
-
-def get_loss_fn(choice, hyperparameters=None):
-  '''
-  Return the loss function of choice
-  '''
-  if choice == 'CrossEntropyLoss':
-    return torch.nn.CrossEntropyLoss()
-  elif choice == 'MSE':
-    return torch.nn.MSELoss()
-  elif choice == 'CosineEmbeddingLoss':
-    return torch.nn.CosineEmbeddingLoss()
-  else:
-    raise ValueError('Unknown loss function choice \'{}\'!'.format(choice))
 
 def rand_select_indices(n, index_length):
   '''
