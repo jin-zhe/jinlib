@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
   name='jinlib',
@@ -7,7 +7,11 @@ setup(
   url='git@github.com:jin-zhe/jinlib.git',
   author='JIN Zhe',
   author_email='thejinzhe@gmail.com',
+  classifiers=[
+    'Intended Audience :: Science/Research',
+    'Topic :: Scientific/Engineering :: Artificial Intelligence',
+  ],
   license='unlicense',
-  packages=['.'],
+  packages=find_packages(),
   zip_safe=False
 )
