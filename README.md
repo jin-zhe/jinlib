@@ -4,5 +4,5 @@ Library package for my line of PyTorch work. Currently there are no documentatio
 
 ## Install via pip
 ```sh
-pip install git+git@github.com:jin-zhe/jinlib.git
+pip install git+https://github.com/jin-zhe/jinlib
 ```
