@@ -269,29 +269,24 @@ def load_optimizer(optimizer: torch.optim.Optimizer, state_dict: dict, state_key
   if converted:
     logging.info('Converted loaded optimizer state_dict tensors from {} to {}.'.format(src_device, dst_device))
 
-def load_checkpoint(ckpt_path: Path, model: torch.nn.Module, optim_choice: str = None, optim_kwargs: dict = None):
+def load_checkpoint(ckpt_path: Path, model: torch.nn.Module, optimizer: torch.optim.Optimizer = None):
   '''
   Loads state_dict from file_path. If optimization is provided, loads state_dict
   of optimization assuming it is present in checkpoint.
   Args:
     ckpt_path: (string) file path of checkpoint to be loaded
     model: (torch.nn.Module) model for which the parameters are loaded
-    optim_choice: (str) the name of optimization to be used
-    optim_kwargs: (dict) the key word arguments for initializing optimzer
+    optimizer: (torch.optim.Optimizer) optimizer whose state is also to be loaded
   '''  
   if not ckpt_path.is_file():
-    raise FileNotFoundError("File doesn't exist! {}".format(str(ckpt_path.resolve())))
+    raise FileNotFoundError("Checkpoint doesn't exist! {}".format(str(ckpt_path.resolve())))
 
   state_dict = torch.load(str(ckpt_path.resolve()))
   logging.info('Resuming epoch {} from checkpoint {}'.format(state_dict['epoch'], str(ckpt_path.resolve())))
   load_model(model, state_dict)
-  optimizer = None
-  if optim_choice and optim_kwargs:
-    optimizer = get_optimizer(optim_choice, optim_kwargs, model)
+  if optimizer:
     load_optimizer(optimizer, state_dict)
-  elif optim_choice or optim_kwargs:
-    raise ArgumentError('Both optim_choice and optim_kwargs must be supplied!')
-  return state_dict, optimizer
+  return state_dict
 
 def load_best_checkpoint(exp_dir: Path, model: torch.nn.Module, optim_choice: str = None, optim_kwargs: dict = None,
   best_filename='best.pth.tar'):
@@ -310,9 +305,6 @@ def load_best_checkpoint(exp_dir: Path, model: torch.nn.Module, optim_choice: st
   except FileNotFoundError:
     print('No best checkpoints to resume!')
     return None
-
-def has_last_checkpoint(exp_dir: Path, last_filename='last.pth.tar'):
-  return (exp_dir / last_filename).is_file()
 
 def resume_last_checkpoint(exp_dir: Path, model: torch.nn.Module, optim_choice: str = None, optim_kwargs: dict = None,
   last_filename='last.pth.tar'):
