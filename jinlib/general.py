@@ -120,7 +120,7 @@ def save_pickle(obj, pkl_path: Path):
 
 def set_logger(directory: Path, log_filename='log.log', console_logging=True):
   '''
-  Set the logger to log info in terminal and file `log_path`.
+  Set the logger to log info in terminal and file `log_filename`.
   Args:
     directory: (Path) directory path where log will reside
     log_filename: (str) filename for log
@@ -142,15 +142,3 @@ def set_logger(directory: Path, log_filename='log.log', console_logging=True):
       stream_handler = logging.StreamHandler()
       stream_handler.setFormatter(logging.Formatter('%(message)s'))
       logger.addHandler(stream_handler)
-
-def log_progress(e, train_loss, train_acc, val_loss, val_acc):
-  stmt = '[Epoch {:0>3d}] '.format(e)
-  stmt += 'Train Loss: {:.4f}'.format(train_loss)
-  if train_acc:
-    stmt += ', Train Acc: {:.4f}%'.format(train_acc*100)
-  stmt += ' | '
-  stmt += 'Val Loss {:.4f}'.format(val_loss)
-  if val_acc:
-    stmt += ', Val Acc {:.4f}%'.format(val_acc*100)
-  logging.info(stmt)
-

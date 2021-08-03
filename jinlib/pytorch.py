@@ -1,18 +1,14 @@
-from argparse import ArgumentError
 from pathlib import Path
 import logging
-import shutil
 import copy
 import os
 
 from sklearn.model_selection import train_test_split
-import numpy as np
 import torchvision
 
 from torch.utils.data import DataLoader
 import torch
 
-from .RunningAverage import RunningAverage
 from .Subset import Subset
 
 def choose_device():
@@ -145,54 +141,6 @@ def copy_params(model):
   '''
   return copy.deepcopy(model.state_dict())
 
-def evaluate(model, data_loader, get_loss=False, get_acc=False,
-  get_conf_mat=False, loss_fn=None, num_labels=-1):
-  '''
-  Returns the model's loss and accuracy on data from data loader
-  '''
-  # Input validation
-  if get_loss:
-    running_loss = RunningAverage()
-    if not loss_fn:
-      raise ValueError('loss_fn must be specified!')
-  if get_acc:
-    running_acc = RunningAverage()
-  if get_conf_mat:
-    if num_labels == -1:
-      raise ValueError('num_labels must be specified!')
-    confusion_matrix = torch.zeros(num_labels, num_labels, dtype=torch.float64)
-
-  
-  # Evaluate model
-  model.eval()
-  with torch.no_grad():
-    for T_samples, T_labels in data_loader:
-      T_samples, T_labels = to_device(choose_device(), T_samples, T_labels)
-      batch_size = T_samples.size(0)
-      T_outputs = model(T_samples)
-      _, T_predictions = torch.max(T_outputs, 1)
-      if get_loss:
-        loss = loss_fn(T_outputs, T_labels)
-        loss_stat = loss.item() * batch_size
-        running_loss.update(loss_stat, batch_size)
-      if get_acc:
-        acc_stat = torch.sum(T_predictions == T_labels).item()
-        running_acc.update(acc_stat, batch_size)
-      if get_conf_mat:
-        for true_label, pred_label in zip(T_labels.view(-1), T_predictions.view(-1)):
-          confusion_matrix[true_label.long()][pred_label.long()] += 1
-        confusion_matrix = confusion_matrix / confusion_matrix.sum(0) # normalize
-  # Returns
-  return_vals = []
-  if get_loss:
-    return_vals.append(running_loss())
-  if get_acc:
-    return_vals.append(running_acc())
-  if get_conf_mat:
-    return_vals.append(confusion_matrix)
-  
-  return return_vals
-
 def one_hot(T_labels, num_classes):
   '''
   Converts a tensor of labels into one-hot vectors.
@@ -205,34 +153,18 @@ def one_hot(T_labels, num_classes):
   T_identity = torch.eye(num_classes) 
   return T_identity[T_labels]
 
-def update_writer(writer, train_loss, train_acc, val_loss, val_acc, epoch):
-  writer.add_scalar('Loss/train', train_loss, epoch)
-  writer.add_scalar('Loss/val', val_loss, epoch)
-  if train_acc:
-    writer.add_scalar('Accuracy/train', train_acc, epoch)
-  if val_acc:
-    writer.add_scalar('Accuracy/val', val_acc, epoch)
-
-def save_checkpoint(dir_path: Path, state, is_best, last_filename='last.pth.tar', best_filename='best.pth.tar'):
+def save_checkpoint(file_path: Path, checkpoint: dict):
   '''
-  Adapted from: https://github.com/cs230-stanford/cs230-code-examples/blob/master/pytorch/vision/utils.py
-  Saves model and training parameters at dir_path + last_filename.
-  If is_best==True, also saves dir_path + 'best.pth.tar'
+  Saves model and training parameters at given file_path.
   Args:
-    dir_path: (Path) directory path where checkpoint is to be saved
-    state: (dict) contains model's state_dict
-    is_best: (bool) True if it is the best model seen till now
-    last_filename: (string) filename for the last checkpoint
-    best_filename: (string) filename for the best checkpoint
+    file_path: (Path) file path where checkpoint is to be saved
+    checkpoint: (dict) contains model's state_dict
   '''
-  file_path = dir_path / last_filename
+  dir_path = file_path.parent
   if not dir_path.exists():
     print("Directory {} does not exist! Making directory".format(str(dir_path.resolve())))
     os.mkdir(str(dir_path.resolve()))
-  torch.save(state, file_path)
-  if is_best:
-    best_file_path = dir_path / best_filename
-    shutil.copyfile(str(file_path.resolve()), str(best_file_path.resolve()))
+  torch.save(checkpoint, file_path)
 
 def load_model(model: torch.nn.Module, state_dict: dict, state_key: str = 'model_state'):
   '''
@@ -282,47 +214,10 @@ def load_checkpoint(ckpt_path: Path, model: torch.nn.Module, optimizer: torch.op
     raise FileNotFoundError("Checkpoint doesn't exist! {}".format(str(ckpt_path.resolve())))
 
   state_dict = torch.load(str(ckpt_path.resolve()))
-  logging.info('Resuming epoch {} from checkpoint {}'.format(state_dict['epoch'], str(ckpt_path.resolve())))
   load_model(model, state_dict)
   if optimizer:
     load_optimizer(optimizer, state_dict)
   return state_dict
-
-def load_best_checkpoint(exp_dir: Path, model: torch.nn.Module, optim_choice: str = None, optim_kwargs: dict = None,
-  best_filename='best.pth.tar'):
-  '''
-  Resumes model with the last checkpoint in the experiment directory.
-  Args:
-    exp_dir: (string) directory path for experiment
-    model: (torch.nn.Module) model for which the parameters are loaded
-    optim_choice: (str) the name of optimization to be used
-    optim_kwargs: (dict) the key word arguments for initializing optimzer
-    best_filename: (string) filename for the best checkpoint within `exp_dir`
-  '''
-  try:
-    best_ckpt_path = exp_dir / best_filename
-    return load_checkpoint(best_ckpt_path, model, optim_choice, optim_kwargs)
-  except FileNotFoundError:
-    print('No best checkpoints to resume!')
-    return None
-
-def resume_last_checkpoint(exp_dir: Path, model: torch.nn.Module, optim_choice: str = None, optim_kwargs: dict = None,
-  last_filename='last.pth.tar'):
-  '''
-  Resumes model with the last checkpoint in the experiment directory.
-  Args:
-    exp_dir: (string) directory path for experiment
-    model: (torch.nn.Module) model for which the parameters are loaded
-    optim_choice: (str) the name of optimization to be used
-    optim_kwargs: (dict) the key word arguments for initializing optimzer
-    last_filename: (string) filename for the last checkpoint within `exp_dir`
-  '''
-  try:
-    last_ckpt_path = exp_dir / last_filename
-    return load_checkpoint(last_ckpt_path, model, optim_choice, optim_kwargs)
-  except FileNotFoundError:
-    print('No prior checkpoints to resume!')
-    return None
 
 def denormalize(T_image, mean, std):
   """

@@ -28,4 +28,3 @@ def plot_classwise_accuracies(classnames, classwise_accuracies,
   plt.savefig(outpath)
   plt.close()
   print(f'Classwise accuracies plot saved to {outpath}')
-
