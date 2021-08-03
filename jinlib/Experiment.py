@@ -499,24 +499,21 @@ class Experiment:
     self.save()
     self.curr_epoch_stats['epoch'] += 1
   
-  @abstractmethod
   def _validation_epoch_end(self):
     '''
-    Must override
+    To override
     '''
     pass
 
-  @abstractmethod
   def _test_epoch_end(self):
     '''
-    Must override
+    To override
     '''
     pass
 
-  @abstractmethod
   def _analyze_epoch_end(self):
     '''
-    Must override
+    To override
     '''
     pass
 
@@ -571,16 +568,14 @@ class Experiment:
   def validation(self):
     self._epochal_subprocedure('validation', self._validation_epoch_end)
   
-  @abstractmethod
   def test(self):
     '''
-    Must override
+    To override
     '''
     pass
 
-  @abstractmethod
   def analyze(self):
     '''
-    Must override
+    To override
     '''
     pass
