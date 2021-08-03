@@ -1,7 +1,3 @@
-#TODO
-import sys
-sys.path.append('..')
-
 from jinlib import Experiment
 
 from torch.utils.data import DataLoader
@@ -61,21 +57,6 @@ class CIFAR10Classifier(Experiment):
       self.dataset.train, batch_size=self.batch_size, shuffle=False, num_workers=2)
     self.validation_loader = DataLoader(
       self.dataset.validation, batch_size=self.batch_size, shuffle=False, num_workers=2)
-
-  def _validation_epoch_end(self):
-    pass
-
-  def _test_epoch_end(self):
-    pass
-
-  def _analyze_epoch_end(self):
-    pass
-
-  def test(self):
-    pass
-
-  def analyze(self):
-    pass
 
 def main():
   exp1 = CIFAR10Classifier(Path('experiment_1'))
