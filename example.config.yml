@@ -1,0 +1,28 @@
+---
+metrics:
+  - loss
+activation:
+  choice: ReLU
+  kwargs: {}
+optimization:
+  choice: SGD
+  kwargs:
+    lr: 0.001
+    momentum: 0.9
+loss:
+  choice: CrossEntropyLoss
+  kwargs: {}
+hyperparams:
+  batch_size: 4
+  num_epochs: 2
+checkpoints:
+  dir: 
+  basename: ckpt
+  best_suffix: best
+  last_suffix: last
+  extension: pth
+  stats_filename: stats.yml
+logs:
+  logger: log.log
+  tensorboard: TB_logdir
+remarks: 
