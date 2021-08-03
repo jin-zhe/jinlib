@@ -1,7 +1,7 @@
 example/data
-example/experiment_1/TB_logdir
-example/experiment_1/stats.yml
-example/experiment_1/*.pth
+example/*/TB_logdir
+example/*/stats.yml
+example/*/*.pth
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
