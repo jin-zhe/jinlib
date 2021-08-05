@@ -1,6 +1,7 @@
 ---
-metrics:
-  - loss
+evaluation_metrics:
+  - loss        # can be omitted as loss is a compulsory metric
+  - accuracy*   # asterisk indicates to select as criterion metric for selecting best epoch
 activation:
   choice: ReLU
   kwargs: {}
@@ -12,9 +13,8 @@ optimization:
 loss:
   choice: CrossEntropyLoss
   kwargs: {}
-hyperparams:
-  batch_size: 4
-  num_epochs: 2
+batch_size: 4
+num_epochs: 5
 checkpoints:
   dir: 
   basename: ckpt
@@ -25,4 +25,4 @@ checkpoints:
 logs:
   logger: log.log
   tensorboard: TB_logdir
-remarks: 
+remarks: This is a great experiment!

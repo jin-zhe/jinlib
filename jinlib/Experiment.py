@@ -4,11 +4,12 @@ from torchsummary import summary
 from jinlib.pytorch import choose_device, get_activation, get_loss_fn, get_optimizer, load_checkpoint, save_checkpoint, to_device
 from jinlib.general import config_path, save_yaml, set_logger
 from jinlib import Configuration, RunningAverage, Stopwatch
-import logging
+from tabulate import tabulate
 
 from abc import ABCMeta, abstractmethod
 from copy import deepcopy
 from pathlib import Path
+import logging
 import shutil
 
 class Experiment:
@@ -16,10 +17,12 @@ class Experiment:
   def __init__(self, experiment_dir: Path, config_filename='config.yml'):
     # Experiment configs
     self.experiment_dir = experiment_dir
-    self.experiment_config = Configuration(config_path(self.experiment_dir, filename=config_filename))
+    self.config = Configuration(config_path(self.experiment_dir, filename=config_filename))
 
     # Attribute defaults before initializations
-    self._metrics = None
+    self._context = None
+    self._evaluation_metrics = None
+    self._criterion_metric = None
     self._logger = None
     self._recorder = None
     self._model = None
@@ -30,6 +33,7 @@ class Experiment:
     self._train_loader = None
     self._validation_loader = None
     self._test_loader = None
+    self._analyze_loader = None
     self._input_dim = None
     self._batch_size = None
     self._num_epochs = None
@@ -42,17 +46,39 @@ class Experiment:
 
   ######## Getters/setters #############################################################################################
   @property
-  def metrics(self):
-    if self._metrics is None:
-      metrics = set(self.experiment_config.metrics)
-      if 'loss' not in metrics:
-        metrics.add('loss') # loss is a compulsory metric!
-      self.metrics = metrics
-    return self._metrics
+  def context(self):
+    return self._context
+  
+  @context.setter
+  def context(self, value):
+    self._context = value
 
-  @metrics.setter
-  def metrics(self, value):
-    self._metrics = value
+  def reset_context(self):
+    self.context = None
+
+  @property
+  def evaluation_metrics(self):
+    if self._evaluation_metrics is None:
+      self._init_evaluation_metrics()
+    return self._evaluation_metrics
+
+  @evaluation_metrics.setter
+  def evaluation_metrics(self, value):
+    for metric in value:
+      if not hasattr(self, 'compute_batch_'+metric):
+        raise ValueError('"{m}" indicated as an evaluation metric but function `compute_batch_{m}` is not defined!'.format(m=metric))
+    self._evaluation_metrics = value
+
+  @property
+  def criterion_metric(self):
+    return self._criterion_metric
+
+  @criterion_metric.setter
+  def criterion_metric(self, value):
+    if not hasattr(self, value + '_comparator'):
+      raise ValueError('Criterion metric chosen as "{m}" but comparator function `{m}_comparator` is not defined!'.format(m=value))
+    self._criterion_metric = value
+    self.logger('Criterion metric chosen as "{}".'.format(value))
 
   @property
   def logger(self):
@@ -125,6 +151,16 @@ class Experiment:
     self._test_loader = value
 
   @property
+  def analyze_loader(self):
+    if self._analyze_loader is None:
+      self._init_dataloaders()
+    return self._analyze_loader
+
+  @analyze_loader.setter
+  def analyze_loader(self, value):
+    self._analyze_loader = value
+
+  @property
   def input_dim(self):
     if self._input_dim is None:
       self._init_input_dim()
@@ -137,7 +173,7 @@ class Experiment:
   @property
   def batch_size(self):
     if self._batch_size is None:
-      self.batch_size = self.experiment_config.hyperparams.batch_size
+      self.batch_size = self.config.batch_size
     return self._batch_size
 
   @batch_size.setter
@@ -149,7 +185,7 @@ class Experiment:
   @property
   def num_epochs(self):
     if self._num_epochs is None:
-      self.num_epochs = self.experiment_config.hyperparams.num_epochs
+      self.num_epochs = self.config.num_epochs
     return self._num_epochs
 
   @num_epochs.setter
@@ -191,8 +227,8 @@ class Experiment:
   @property
   def checkpoint_dir(self):
     if self._checkpoint_dir is None:
-      if self.experiment_config.checkpoints.dir:
-        self.checkpoint_dir = Path(self.experiment_config.checkpoints.dir)
+      if self.config.checkpoints.dir:
+        self.checkpoint_dir = Path(self.config.checkpoints.dir)
       else:
         self.checkpoint_dir =  self.experiment_dir
     return self._checkpoint_dir
@@ -223,13 +259,30 @@ class Experiment:
 
   ######## Initializations #############################################################################################
 
+  def _init_evaluation_metrics(self):
+    # preprocess
+    evaluation_metrics = [m.lower() for m in self.config.evaluation_metrics]
+    not_picked = set([m for m in evaluation_metrics if m[-1] != '*'])
+    picked = set([m[:-1] for m in evaluation_metrics if m[-1] == '*'])
+    not_picked -= picked # ensures mutual-exclusivity by eliminating cases such as ['accuracy','accuracy*'] where 'accuracy*' survives
+    if len(picked) > 1:
+      raise ValueError('Only 1 evaluation metric allowed but these were indicated: {}'.format(', '.join(list(picked))))
+    elif len(picked) == 0: # if nothing was selected, defaults to 'loss'
+      picked.add('loss')
+      not_picked.discard('loss')
+
+    # assignments
+    self.criterion_metric = list(picked)[0]
+    metrics = picked | not_picked
+    metrics.remove('loss')
+    self.evaluation_metrics = ['loss'] + list(metrics) # force loss to be the first metric in sequence
+
   def _init_logger(self):
-    set_logger(self.experiment_dir, # omit this line in overriden function if logger is already set elsewhere
-      log_filename=self.experiment_config.logs.logger)
+    set_logger(self.experiment_dir, log_filename=self.config.logs.logger)
     self.logger = logging.info
 
   def _init_recorder(self):
-    self.recorder = SummaryWriter(str(self.experiment_dir / self.experiment_config.logs.tensorboard))
+    self.recorder = SummaryWriter(str(self.experiment_dir / self.config.logs.tensorboard))
 
   def _init_epoch_stats(self):
     '''
@@ -239,16 +292,16 @@ class Experiment:
       'epoch': 0,
       'train': {
         'loss': None,
-        # And other metrics in `self.metrics`
+        # And other metrics in `self.evaluation_metrics`
         },
       'validation': {
         'loss': None,
-        # And other metrics in `self.metrics`
+        # And other metrics in `self.evaluation_metrics`
         }
     }
     '''
     self.curr_epoch_stats = {'epoch': 0, 'train': {}, 'validation': {}}
-    for metric in self.metrics:
+    for metric in self.evaluation_metrics:
       self.curr_epoch_stats['train'][metric] = None
       self.curr_epoch_stats['validation'][metric] = None
 
@@ -261,11 +314,11 @@ class Experiment:
         'current': None,
         'running': RunningAverage(),
       },
-      # And other metrics in `self.metrics`
+      # And other metrics in `self.evaluation_metrics`
     }
     '''
     self.curr_iter_stats = {}
-    for metric in self.metrics:
+    for metric in self.evaluation_metrics:
       self.curr_iter_stats[metric] = {
         'current': None,              # Current metric value at each iteration
         'running': RunningAverage()   # Running average at each iteration
@@ -293,24 +346,25 @@ class Experiment:
     self.train_loader = None
     self.validation_loader = None
     self.test_loader = None
+    self.analyze_loader = None
 
   def _init_activation(self):
     self.activation = get_activation(
-      self.experiment_config.activation.choice,
-      vars(self.experiment_config.activation.kwargs),
+      self.config.activation.choice,
+      vars(self.config.activation.kwargs),
     )
 
   def _init_optimizer(self):
     self.optimizer = get_optimizer(
-      self.experiment_config.optimization.choice,
-      vars(self.experiment_config.optimization.kwargs),
+      self.config.optimization.choice,
+      vars(self.config.optimization.kwargs),
       self.model
     )
 
   def _init_loss_fn(self):
     self.loss_fn = get_loss_fn(
-      self.experiment_config.loss.choice,
-      vars(self.experiment_config.loss.kwargs)
+      self.config.loss.choice,
+      vars(self.config.loss.kwargs)
     )
 
   def _init_input_dim(self):
@@ -334,14 +388,14 @@ class Experiment:
     }
 
   def resolve_checkpoint_path(self, choice):
-    basename = self.experiment_config.checkpoints.basename
-    suffix = getattr(self.experiment_config.checkpoints, choice + '_suffix')
-    extension = self.experiment_config.checkpoints.extension
+    basename = self.config.checkpoints.basename
+    suffix = getattr(self.config.checkpoints, choice + '_suffix')
+    extension = self.config.checkpoints.extension
     checkpoint_filename = '{}.{}.{}'.format(basename, suffix, extension)
     return self.checkpoint_dir / checkpoint_filename
 
   def save_stats(self):
-    stats_path = self.checkpoint_dir / self.experiment_config.checkpoints.stats_filename
+    stats_path = self.checkpoint_dir / self.config.checkpoints.stats_filename
     save_yaml(self._format_stats(), stats_path)
 
   def save(self):
@@ -385,48 +439,54 @@ class Experiment:
 
   ######## Metric computation and update ###############################################################################
 
-  def compute_metric(self, metric, T_outputs, T_labels):
+  def compute_batch_metric(self, metric, T_out, T_y, batch_size):
     '''
-    Get the computation function for the given metric and compute based on it.
-    Example: if metric is 'loss', returns `self.compute_loss(T_outputs, T_labels)` function
-    It's the caller's responsibility of ensuring that method `self.compute_<metric>` exists in the class at run time
+    Get the computation function for the given metric and measure the batch performance with it.
+    Example: if metric is 'loss', returns `self.compute_loss(T_out, T_y)` function
     '''
-    return getattr(self, 'compute_'+metric)(T_outputs, T_labels)
+    return getattr(self, 'compute_batch_'+metric)(T_out, T_y, batch_size)
 
-  def compute_loss(self, T_outputs, T_labels):
-    return self.loss_fn(T_outputs, T_labels)
+  def compute_batch_loss(self, T_out, T_y, batch_size):
+    return self.loss_fn(T_out, T_y)
 
-  def compute_accuracy(self, T_outputs, T_labels):
-    _, T_predictions = torch.max(T_outputs, 1)
-    return torch.sum(T_predictions == T_labels.data)
+  def compute_batch_accuracy(self, T_out, T_y, batch_size):
+    _, T_predictions = torch.max(T_out, 1)
+    return torch.sum(T_predictions == T_y.data) / batch_size
 
-  def compute_precision(self, T_outputs, T_labels):
-    pass #TODO
+  def loss_comparator(self, curr_loss, past_loss):
+    '''
+    Checks if `curr_loss` is lower than `past_loss`
+    '''
+    return curr_loss < past_loss
 
-  def compute_recall(self, T_outputs, T_labels):
-    pass  #TODO
+  def accuracy_comparator(self, curr_acc, past_acc):
+    '''
+    Checks if `curr_acc` is higher than `past_acc`
+    '''
+    return curr_acc > past_acc
 
-  def compute_F1(self, T_outputs, T_labels):
-    pass  #TODO
-
-  def is_new_best(self, metric='loss', context='validation'):
+  def is_new_best(self, context='validation'):
     '''
     Override if different criteria for selecting best epoch is used
     '''
-    return self.best_epoch_stats is None or (
-      self.curr_epoch_stats[context][metric] < self.best_epoch_stats[context][metric])
+    metric = self.criterion_metric
+    curr_val = self.curr_epoch_stats[context][metric]
+    past_val = self.best_epoch_stats[context][metric]
+    comparator = getattr(self, metric + '_comparator')
+    return comparator(curr_val, past_val)
 
   def _check_and_update_stats(self):
-    if self.is_new_best():
+    if self.best_epoch_stats is None or self.is_new_best():
       self.best_epoch_stats = deepcopy(self.curr_epoch_stats)
 
-  def _update_iter_stats(self, T_outputs, T_labels, batch_size):
+  def _update_iter_stats(self, T_out, T_y):
     '''
     Note the batch_size here refers to the batch size pertaining to this iteration. It may not be the same as
     self.batch_size as in the case of the last batch if it were not dropped
     '''
-    for metric in self.curr_iter_stats:
-      T_value = self.compute_metric(metric, T_outputs, T_labels)
+    batch_size = T_y.size(0)
+    for metric in self.evaluation_metrics:
+      T_value = self.compute_batch_metric(metric, T_out, T_y, batch_size)
       self.curr_iter_stats[metric]['current'] = T_value
       self.curr_iter_stats[metric]['running'].update(T_value.item() * batch_size, batch_size)
 
@@ -444,7 +504,7 @@ class Experiment:
 
   def record_progress(self):
     for context in ['train', 'validation']:
-      for metric in self.metrics:
+      for metric in self.evaluation_metrics:
         self.recorder.add_scalar(
           '{}/{}'.format(metric.capitalize(),context),
           self.curr_epoch_stats[context][metric],
@@ -454,9 +514,9 @@ class Experiment:
   def record_hyperparams(self):
     self.recorder.add_hparams(
       {
-        'activation': self.experiment_config.activation.choice,
-        'optimization': self.experiment_config.optimization.choice,
-        'loss_function': self.experiment_config.loss.choice,
+        'activation': self.config.activation.choice,
+        'optimization': self.config.optimization.choice,
+        'loss_function': self.config.loss.choice,
         'batch_size': self.batch_size,
         'epochs': self.num_epochs
       },
@@ -466,23 +526,38 @@ class Experiment:
       }
     )
 
+  def format_performance(self, value, metric):
+    unit = ''
+    if metric == 'accuracy':
+      unit = '%'
+      value *= 100
+    return '{:.4f}{}'.format(value, unit)
+
   def log_progress(self):
-    stmt = '[Epoch {:0>3d}] '.format(self.curr_epoch_stats['epoch'])
-    stmt += 'Train Loss: {:.4f}'.format(self.curr_epoch_stats['train']['loss'])
-    stmt += ' | '
-    stmt += 'Validation Loss {:.4f}'.format(self.curr_epoch_stats['validation']['loss'])
-    self.logger(stmt)
+    is_curr_best = self.curr_epoch_stats == self.best_epoch_stats
+    epoch_str = 'Epoch #{}{}'.format(self.curr_epoch_stats['epoch'], '*' if is_curr_best else '')
+    headers = [epoch_str] + [m.capitalize() for m in self.evaluation_metrics]
+    rows = [[c.capitalize()] + [self.format_performance(self.curr_epoch_stats[c][m],m) for m in self.evaluation_metrics] for c in ['train', 'validation']]
+    stmt = tabulate(rows, headers=headers, tablefmt="fancy_grid")
+    self.logger('\n' + stmt)
 
-  def log_commencement(self):
-    self.logger('Commencing training for experiment: {}'.format(self.experiment_dir))
+  def log_training_commencement(self, num_epochs):
+    self.logger('Commencing training for experiment "{}" with {} epochs.'.format(self.experiment_dir, num_epochs))
 
-  def log_completion(self, elapsed_time):
-    self.logger('Experiment {} completed after {}. Epoch {} is the best with {:.4f} validation loss.'.format(
+  def log_training_completion(self, elapsed_time):
+    self.logger('Training {} completed after {}. Epoch {} is the best with validation {}: {}'.format(
       self.experiment_dir,
       elapsed_time,
       self.best_epoch_stats['epoch'],
-      self.best_epoch_stats['validation']['loss'])
+      self.criterion_metric,
+      self.format_performance(self.best_epoch_stats['validation'][self.criterion_metric], self.criterion_metric)
+      )
     )
+
+  def print_model(self):
+    input_dim = self.input_dim  # do this first as it'll trigger dataset load
+    self.logger('Model summary:')
+    summary(self.model, input_dim)
 
   ######## Train/Evaluation/Test  ######################################################################################
   def _train_epoch_end(self):
@@ -492,7 +567,6 @@ class Experiment:
     '''
     self._update_train_stats()
     self.validation()
-    self._update_validation_stats()
     self._check_and_update_stats()
     self.log_progress()
     self.record_progress()
@@ -500,10 +574,7 @@ class Experiment:
     self.curr_epoch_stats['epoch'] += 1
   
   def _validation_epoch_end(self):
-    '''
-    To override
-    '''
-    pass
+    self._update_validation_stats()
 
   def _test_epoch_end(self):
     '''
@@ -517,37 +588,29 @@ class Experiment:
     '''
     pass
 
-  def _epochal_subprocedure(self, context, epoch_end):
-    if context == 'train':
-      num_epochs = self.num_epochs
-      dataloader = self.train_loader
-    elif context == 'validation' or context == 'test':
-      num_epochs = 1
-      dataloader = self.validation_loader
-    else:
-      raise ValueError('Unknown epochal context {}!'.format(context))
-
-    if context == 'validation':
+  def _epochal_subprocedure(self, context, train_mode, dataloader, num_epochs, epoch_end):
+    if not train_mode:
       self.model.eval()
       torch.set_grad_enabled(False)
     for _ in range(num_epochs):
+      self.context = context    # sets context at start of every epoch
       self._init_iter_stats()   # reset stats at every epoch
-      if context == 'train':
+      if train_mode:
         self.model.train()
-      for i, (T_samples, T_labels) in enumerate(dataloader, 0):
-        batch_size = T_samples.size(0)
-        T_samples, T_labels = to_device(choose_device(), T_samples, T_labels)
-        if context == 'train':
+      for i, (T_x, T_y) in enumerate(dataloader, 0):
+        T_x, T_y = to_device(choose_device(), T_x, T_y)
+        if train_mode:
           self.optimizer.zero_grad()  # zeroise parameter gradients
-        T_outputs = self.model(T_samples)
-        self._update_iter_stats(T_outputs, T_labels, batch_size)
+        T_out = self.model(T_x)
+        self._update_iter_stats(T_out, T_y)
         T_loss = self.curr_iter_stats['loss']['current']
-        if context == 'train':
+        if train_mode:
           T_loss.backward()           # calc gradients
           self.optimizer.step()       # update params
-      epoch_end()               # run end epoch routines
-    if context == 'validation':
+      epoch_end()               # run end epoch routine
+    if not train_mode:
       torch.set_grad_enabled(True)
+    self.reset_context()  # resets context at end of this subprocedure
 
   def train(self, resume=False):
     if resume:
@@ -556,26 +619,33 @@ class Experiment:
       self.model.to(choose_device())
       self._init_epoch_stats()
     
-    self.logger('Model summary:')
-    summary(self.model, self.input_dim)
+    self.print_model()
     self.logger(self.model)
-    self.log_commencement()
+    self.log_training_commencement(self.num_epochs)
     elapsed = Stopwatch()
-    self._epochal_subprocedure('train', self._train_epoch_end)
-    self.log_completion(elapsed())
+    self._epochal_subprocedure('train', True, self.train_loader, self.num_epochs, self._train_epoch_end)
+    self.log_training_completion(elapsed())
     self.record_hyperparams()
 
-  def validation(self):
-    self._epochal_subprocedure('validation', self._validation_epoch_end)
+  def validation(self, load_best=False):
+    '''
+    Note that we do not normally load the best checkpoint because
+    validation is a subroutine at the end of every training epoch
+    '''
+    if load_best:
+      self.load('best')
+    self._epochal_subprocedure('validation', False, self.validation_loader, 1, self._validation_epoch_end)
   
   def test(self):
     '''
     To override
     '''
-    pass
+    self.load('best')
+    self._epochal_subprocedure('test', False, self.test_loader, 1, self._test_epoch_end)
 
   def analyze(self):
     '''
     To override
     '''
-    pass
+    self.load('best')
+    self._epochal_subprocedure('analyze', False, self.analyze_loader, 1, self._analyze_epoch_end)
