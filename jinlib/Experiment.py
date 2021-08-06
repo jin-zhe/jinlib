@@ -1,9 +1,6 @@
 from torch.utils.tensorboard import SummaryWriter
 import torch
 from torchsummary import summary
-from jinlib.pytorch import choose_device, get_activation, get_loss_fn, get_optimizer, load_checkpoint, save_checkpoint, to_device
-from jinlib.general import config_path, save_yaml, set_logger
-from jinlib import Configuration, RunningAverage, Stopwatch
 from tabulate import tabulate
 
 from abc import ABCMeta, abstractmethod
@@ -11,6 +8,12 @@ from copy import deepcopy
 from pathlib import Path
 import logging
 import shutil
+
+from .pytorch import choose_device, get_activation, get_loss_fn, get_optimizer, load_checkpoint, save_checkpoint, to_device
+from .general import config_path, save_yaml, set_logger
+from .Configuration import Configuration
+from .RunningAverage import RunningAverage
+from .Stopwatch import Stopwatch
 
 class Experiment:
   __metaclass__ = ABCMeta
@@ -355,9 +358,15 @@ class Experiment:
     )
 
   def _init_optimizer(self):
+    kwargs = vars(self.config.optimization.kwargs)
+    if self.config.regularization:
+      if not hasattr(self.config.regularization, 'L2'):
+        raise ValueError('Only L2 regularization is currently supported!')
+      else:
+        kwargs['weight_decay'] = self.config.regularization.L2
     self.optimizer = get_optimizer(
       self.config.optimization.choice,
-      vars(self.config.optimization.kwargs),
+      kwargs,
       self.model
     )
 

@@ -13,6 +13,8 @@ optimization:
 loss:
   choice: CrossEntropyLoss
   kwargs: {}
+regularization:
+  L2: 0.001
 batch_size: 4
 num_epochs: 5
 checkpoints:
