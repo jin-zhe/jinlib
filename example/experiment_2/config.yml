@@ -1,0 +1,29 @@
+---
+evaluation_metrics:
+  - loss*
+  - accuracy
+activation:
+  choice: LeakyReLU
+  kwargs:
+    negative_slope: 0.01
+optimization:
+  choice: Adam
+  kwargs:
+    lr: 0.001
+    weight_decay: 0.001
+loss:
+  choice: CrossEntropyLoss
+  kwargs: {}
+batch_size: 128
+num_epochs: 10
+checkpoints:
+  dir: 
+  basename: ckpt
+  best_suffix: best
+  last_suffix: last
+  extension: pth
+  stats_filename: stats.yml
+logs:
+  logger: log.log
+  tensorboard: TB_logdir
+remarks: Alternative choice off activation, optimization and hyperparameters

@@ -85,4 +85,8 @@ def main():
   exp1.train()
   exp1.analyze()
 
+  exp2 = CIFAR10Classifier(Path('experiment_2'))
+  exp2.train()
+  exp2.analyze()
+
 if __name__ == '__main__': main()
