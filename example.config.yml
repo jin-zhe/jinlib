@@ -1,30 +1,31 @@
 ---
-evaluation_metrics:
-  - loss        # can be omitted as loss is a compulsory metric
-  - accuracy*   # asterisk indicates to select as criterion metric for selecting best epoch
-activation:
-  choice: ReLU
-  kwargs: {}
-optimization:
-  choice: SGD
-  kwargs:
+evaluation_metrics:         # The metrics which will be calculated for every epoch
+  - loss                    # Can be omitted as loss is a compulsory metric
+  - accuracy*               # Asterisk indicates to set as criterion metric for selecting best epoch
+activation:                 # Activation function
+  choice: ReLU              # Same name as function in in torch.nn
+  kwargs: {}                # Parameters for activation function call. {} to indicate PyTorch defaults
+optimization:               # Optimization function
+  choice: SGD               # Same name as function in torch.optim
+  kwargs:                   # Parameters for activation function call
     lr: 0.001
     momentum: 0.9
-loss:
-  choice: CrossEntropyLoss
-  kwargs: {}
-regularization:
-  L2: 0.001
-batch_size: 4
-num_epochs: 5
-checkpoints:
-  dir: 
-  basename: ckpt
-  best_suffix: best
-  last_suffix: last
-  extension: pth
-  stats_filename: stats.yml
-logs:
-  logger: log.log
-  tensorboard: TB_logdir
+loss:                       # Loss function
+  choice: CrossEntropyLoss  # Same name as function in in torch.nn
+  kwargs: {}                # Parameters for activation function call. {} to indicate PyTorch defaults
+regularization:             # Regularization terms (currently only supports L2)
+  L2: 0.001                 # Lagrange multiplier (i.e. lambda) value
+batch_size: 4               # Mini-batch size for dataloaders
+num_epochs: 5               # Number of training epochs
+checkpoints:                # Checkpoint related configuration
+  dir:                      # Directory under which checkpoints are saved. Defaults to experiment directory if none indicated (recommended)
+  basename: ckpt            # Basename of each checkpoint
+  best_suffix: best         # Suffix of the best checkpoint. E.g. ckpt.best.pth
+  last_suffix: last         # Suffix of the last checkpoint. E.g. ckpt.last.pth
+  extension: pth            # File extension for checkpoint files
+  stats_filename: stats.yml # Filename for reviewing best and last checkpoint statistics. It will be saved in the same directory as checkpoints
+logs:                       # Logging related configuration
+  logger: log.log           # Filename which logger will log to. It sits in the same directory as the experiment
+  tensorboard: TB_logdir    # The logdir for Tensorboard. It sits in the same directory as the experiment
 remarks: This is a great experiment!
+
