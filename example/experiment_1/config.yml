@@ -13,8 +13,9 @@ optimization:
 loss:
   choice: CrossEntropyLoss
   kwargs: {}
+regularization:
 batch_size: 4
-num_epochs: 10
+num_epochs: 5
 checkpoints:
   dir: 
   basename: ckpt
