@@ -1,5 +1,5 @@
 example/data
-example/experiment*/
+example/experiment*/*
 !example/experiment*/config.yml
 
 # Byte-compiled / optimized / DLL files
