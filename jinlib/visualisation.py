@@ -4,8 +4,13 @@ import pandas as pd
 
 from pathlib import Path
 
+from .general import save_pickle
+
 def plot_confusion_matrix(classnames, confusion_matrix, experiment_dir: Path,
-  figsize=None, annot=True, cmap='Greens', dpi=300, filename='confusion_matrix.png'):
+  figsize=None, annot=True, cmap='Greens', dpi=300, filename='confusion_matrix.png', save_data=True):
+  outpath = str(experiment_dir.resolve() / filename)
+  if save_data:
+    save_pickle({'classnames': classnames, 'confusion_matrix': confusion_matrix}, outpath + '.pkl')
   if figsize:
     plt.figure(figsize)
   else:
@@ -16,13 +21,15 @@ def plot_confusion_matrix(classnames, confusion_matrix, experiment_dir: Path,
   hm.set_xticklabels(classnames, rotation=-90)
   hm.set_yticklabels(classnames, rotation=0)
   hm.set_title('Confusion matrix (%)')
-  outpath = str(experiment_dir.resolve() / filename)
   plt.savefig(outpath, dpi=dpi)
   plt.close()
   print(f'Confusion matrix plot saved to {outpath}')
 
 def plot_classwise_accuracies(classnames, classwise_accuracies, experiment_dir: Path,
-  figsize=None, color='b', dpi=300, filename='classwise_accuracies.png'):
+  figsize=None, color='b', dpi=300, filename='classwise_accuracies.png', save_data=True):
+  outpath = str(experiment_dir.resolve() / filename)
+  if save_data:
+    save_pickle({'classnames': classnames, 'classwise_accuracies': classwise_accuracies}, outpath + '.pkl')
   if figsize:
     plt.figure(figsize)
   else:
@@ -38,7 +45,6 @@ def plot_classwise_accuracies(classnames, classwise_accuracies, experiment_dir: 
   bp.set(xlim=(0, 100))
   bp.set_title('Classwise Accuracies (%)')
   sns.despine(left = True, bottom = True)
-  outpath = str(experiment_dir.resolve() / filename)
   plt.savefig(outpath, dpi=dpi)
   plt.close()
   print(f'Classwise accuracies plot saved to {outpath}')
