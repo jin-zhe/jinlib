@@ -362,8 +362,11 @@ class Experiment:
     if self.config.regularization:
       if not hasattr(self.config.regularization, 'L2'):
         raise ValueError('Only L2 regularization is currently supported!')
-      else:
-        kwargs['weight_decay'] = self.config.regularization.L2
+      else: # if L2
+        if 'weight_decay' in kwargs:
+          self.logger('You have indicated both L2 regularization and optimizer weight_decay. Your weight_decay of {} will take precedence.'.format(kwargs['weight_decay']))
+        else:
+          kwargs['weight_decay'] = self.config.regularization.L2
     self.optimizer = get_optimizer(
       self.config.optimization.choice,
       kwargs,
