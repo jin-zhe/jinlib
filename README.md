@@ -67,7 +67,7 @@ Install via pip:
 ```sh
 pip install -e .
 ```
-Alternatively, you may also do
+Alternatively, you may also do the following but you will lose the ability to uninstall it over pip:
 ```sh
 python setup.py install develop
 ```
