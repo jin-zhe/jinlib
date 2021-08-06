@@ -4,10 +4,50 @@ Library package for my line of PyTorch work. Includes convenience functions that
 
 To give some sense of just how handy the framework brought by the [Experiment class](jinlib/Experiment.py) and library is for whipping up quick experiments, you may wish to compare between [our code](example/CIFAR10_classifier.py) and [PyTorch's guide](https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html) for the same CIFAR10 classifier experiment.
 
-## Dependencies
-Too many to list manually, please install and install neccessary dependencies yourself.
+## Overview
+Every individual experiment is identified by a directory. Experiment settings are fully described by the `config.yml` within their respective directories. The [`example.config.yml`](example.config.yml) provides all the configurations supported out-of-the-box:
+```yml
+---
+evaluation_metrics:         # The metrics which will be calculated for every epoch
+  - loss                    # Can be omitted as loss is a compulsory metric
+  - accuracy*               # Asterisk indicates to set as criterion metric for selecting best epoch
+activation:                 # Activation function
+  choice: ReLU              # Same name as function in in torch.nn
+  kwargs: {}                # Parameters for activation function call. {} to indicate PyTorch defaults
+optimization:               # Optimization function
+  choice: SGD               # Same name as function in torch.optim
+  kwargs:                   # Parameters for activation function call
+    lr: 0.001
+    momentum: 0.9
+loss:                       # Loss function
+  choice: CrossEntropyLoss  # Same name as function in in torch.nn
+  kwargs: {}                # Parameters for activation function call. {} to indicate PyTorch defaults
+regularization:             # Regularization terms (currently only supports L2)
+  L2: 0.001                 # Lagrange multiplier (i.e. lambda) value
+batch_size: 4               # Mini-batch size for dataloaders
+num_epochs: 5               # Number of training epochs
+checkpoints:                # Checkpoint related configuration
+  dir:                      # Directory under which checkpoints are saved. Defaults to experiment directory if none indicated (recommended)
+  basename: ckpt            # Basename of each checkpoint
+  best_suffix: best         # Suffix of the best checkpoint. E.g. ckpt.best.pth
+  last_suffix: last         # Suffix of the last checkpoint. E.g. ckpt.last.pth
+  extension: pth            # File extension for checkpoint files
+  stats_filename: stats.yml # Filename for reviewing best and last checkpoint statistics. It will be saved in the same directory as checkpoints
+logs:                       # Logging related configuration
+  logger: log.log           # Filename which logger will log to. It sits in the same directory as the experiment
+  tensorboard: TB_logdir    # The logdir for Tensorboard. It sits in the same directory as the experiment
+remarks: This is a great experiment!
+
+```
+To read in this experiment configuration file, you'll need to first create a class that subclasses [`Experiment`](jinlib/Experiment.py). Your subclass *must* minimally override and implement the methods `_init_model`, `_init_dataset` and `_init_dataloaders`. Please refer to these methods to see what class attributes have to be defined within these methods. Every `Experiment` instance exposes the methods `.train()`, `.validation()` and `.test()` to correspond to the respective contexts of running the model. In addition, `analyze()` is meant for providing analytic outputs of a model's performance after training. Please refer to the [CIFAR10 classifier](example/CIFAR10_classifier.py) as a simple example.
+
+ You may also override any of the methods in [`Experiment`] as you see fit. For instance, if you are using a custom loss function, you may simply override `_init_loss_fn` in your subclass. In the [CIFAR10 classifier](example/CIFAR10_classifier.py), we override `_update_iter_stats` to additionally keep track of a confusion matrix across the iterations in analyze context. There's also nothing stopping you from adding more custom configurations and overriding relevant methods to read from them.
 
 ## Install instructions
+
+### Dependencies
+Too many to list manually for now, please trial and error and install neccessary dependencies yourself.
+
 ### Via pip
 ```sh
 pip install git+https://github.com/jin-zhe/jinlib
