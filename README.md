@@ -41,7 +41,9 @@ remarks: This is a great experiment!
 ```
 To read in this experiment configuration file, you'll need to first create a class that subclasses [`Experiment`](jinlib/Experiment.py). Your subclass *must* minimally override and implement the methods `_init_model`, `_init_dataset` and `_init_dataloaders`. Please refer to these methods to see what class attributes have to be defined within these methods. Every `Experiment` instance exposes the methods `.train()`, `.validation()` and `.test()` to correspond to the respective contexts of running the model. In addition, `analyze()` is meant for providing analytic outputs of a model's performance after training. Please refer to the [CIFAR10 classifier](example/CIFAR10_classifier.py) as a simple example.
 
- You may also override any of the methods in [`Experiment`] as you see fit. For instance, if you are using a custom loss function, you may simply override `_init_loss_fn` in your subclass. In the [CIFAR10 classifier](example/CIFAR10_classifier.py), we override `_update_iter_stats` to additionally keep track of a confusion matrix across the iterations in analyze context. There's also nothing stopping you from adding more custom configurations and overriding relevant methods to read from them.
+ You may also override any of the methods in [`Experiment`](jinlib/Experiment.py) as you see fit. For instance, if you are using a custom loss function, you may simply override `_init_loss_fn` in your subclass. In the [CIFAR10 classifier](example/CIFAR10_classifier.py), we override `_update_iter_stats` to additionally keep track of a confusion matrix across the iterations in analyze context. There's also nothing stopping you from adding more custom configurations and overriding relevant methods to read from them.
+
+Currently, only the best and last checkpoints will be saved for every experiment as this is sufficient for my line of work. Support for saving checkpoints every k iterations/epochs might be added in the future but is not a priority for now.
 
 ## Install instructions
 
