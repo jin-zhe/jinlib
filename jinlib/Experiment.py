@@ -310,7 +310,8 @@ class Experiment:
 
   def _init_iter_stats(self):
     '''
-    Initializes the stats for current training/evaluation iteration. To be used at the start of every epoch to reset.
+    Initializes the stats for current iteration. To be called at the start of
+    every epoch to reset.
 
     self.curr_iter_stats = {
       'loss': {
@@ -491,11 +492,14 @@ class Experiment:
     if self.best_epoch_stats is None or self.is_new_best():
       self.best_epoch_stats = deepcopy(self.curr_epoch_stats)
 
-  def _update_iter_stats(self, T_out, T_y):
+  def _update_iter_stats(self, T_out, T_batch):
     '''
-    Note the batch_size here refers to the batch size pertaining to this iteration. It may not be the same as
-    self.batch_size as in the case of the last batch if it were not dropped
+    Note:
+      `batch_size` here refers to the batch size pertaining to this iteration.
+      It may not be the same as `self.batch_size` such as in the case of the
+      last batch if it were not dropped.
     '''
+    T_y = T_batch[1]  # samples default to second item in batch (recommended)
     batch_size = T_y.size(0)
     for metric in self.evaluation_metrics:
       T_value = self.compute_batch_metric(metric, T_out, T_y, batch_size)
@@ -600,7 +604,16 @@ class Experiment:
     '''
     pass
 
+  def _output_batch(self, T_batch):
+    T_x = T_batch[0]  # samples default to first item in batch (recommended)
+    return self.model(T_x)
+
   def _epochal_subprocedure(self, context, train_mode, dataloader, num_epochs, epoch_end):
+    '''
+    Notes:
+      `T_batch` is agnostic to your dataset which can return more than 2 for
+      __getitem__ calls
+    '''
     if not train_mode:
       self.model.eval()
       torch.set_grad_enabled(False)
@@ -609,12 +622,12 @@ class Experiment:
       self._init_iter_stats()   # reset stats at every epoch
       if train_mode:
         self.model.train()
-      for i, (T_x, T_y) in enumerate(dataloader, 0):
-        T_x, T_y = to_device(choose_device(), T_x, T_y)
+      for i, T_batch in enumerate(dataloader, 0):
+        T_batch = to_device(choose_device(), *T_batch)
         if train_mode:
           self.optimizer.zero_grad()  # zeroise parameter gradients
-        T_out = self.model(T_x)
-        self._update_iter_stats(T_out, T_y)
+        T_out = self._output_batch(T_batch)
+        self._update_iter_stats(T_out, T_batch)
         T_loss = self.curr_iter_stats['loss']['current']
         if train_mode:
           T_loss.backward()           # calc gradients
