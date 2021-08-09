@@ -65,11 +65,11 @@ class CIFAR10Classifier(Experiment):
     if self.context == 'analyze':
       self.curr_iter_stats['confusion_matrix'] = torch.zeros(len(self.classes), len(self.classes), dtype=torch.float64)
 
-  def _update_iter_stats(self, T_out, T_x):
-    super()._update_iter_stats(T_out, T_x)
+  def _update_iter_stats(self, T_out, batch):
+    super()._update_iter_stats(T_out, batch)
     if self.context == 'analyze':
       _, T_predictions = torch.max(T_out, 1)
-      for true_label, pred_label in zip(T_x.view(-1), T_predictions.view(-1)):
+      for true_label, pred_label in zip(batch[1].view(-1), T_predictions.view(-1)):
         self.curr_iter_stats['confusion_matrix'][true_label.long()][pred_label.long()] += 1
 
   def analyze(self):
@@ -82,7 +82,7 @@ class CIFAR10Classifier(Experiment):
 
 def main():
   exp1 = CIFAR10Classifier(Path('experiment_1'))
-  exp1.train()
+  # exp1.train()
   exp1.analyze()
 
   exp2 = CIFAR10Classifier(Path('experiment_2'))

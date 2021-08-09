@@ -452,19 +452,13 @@ class Experiment:
 
   ######## Metric computation and update ###############################################################################
 
-  def compute_batch_metric(self, metric, T_out, T_y, batch_size):
-    '''
-    Get the computation function for the given metric and measure the batch performance with it.
-    Example: if metric is 'loss', returns `self.compute_loss(T_out, T_y)` function
-    '''
-    return getattr(self, 'compute_batch_'+metric)(T_out, T_y, batch_size)
+  def compute_batch_loss(self, T_out, batch):
+    return self.loss_fn(T_out, self.batch_y(batch))
 
-  def compute_batch_loss(self, T_out, T_y, batch_size):
-    return self.loss_fn(T_out, T_y)
-
-  def compute_batch_accuracy(self, T_out, T_y, batch_size):
+  def compute_batch_accuracy(self, T_out, batch):
+    batch_size = T_out.size(0)
     _, T_predictions = torch.max(T_out, 1)
-    return torch.sum(T_predictions == T_y.data) / batch_size
+    return torch.sum(T_predictions == self.batch_y(batch).data) / batch_size
 
   def loss_comparator(self, curr_loss, past_loss):
     '''
@@ -492,17 +486,30 @@ class Experiment:
     if self.best_epoch_stats is None or self.is_new_best():
       self.best_epoch_stats = deepcopy(self.curr_epoch_stats)
 
-  def _update_iter_stats(self, T_out, T_batch):
+  def _update_iter_stats(self, T_out, batch):
     '''
-    Note:
-      `batch_size` here refers to the batch size pertaining to this iteration.
-      It may not be the same as `self.batch_size` such as in the case of the
-      last batch if it were not dropped.
+    This method defines which calculations are to be done for every batch and
+    what iteration states are to be updated/accumulated. It will compute
+    every metric listed in `self.evaluation_metrics` and update
+    `self.curr_iter_stats`. Override for specifying additional batch-specific
+    computations and data to withhold across iterations in an epoch.
+
+    Args:
+      T_out: (torch.tensor) model output from the given batch
+      batch: (list) list of tensors returned by a `next()` call on dataloader
+            iteratble
+    Notes:
+      - `batch_size` here refers to the batch size pertaining to this iteration.
+      It *may not* be the same as `self.batch_size` such as in the case of the
+      last batch if it has a smaller size and is not dropped.
+      - For every metric to be computed, method `self._compute_batch_<metric>`
+      has to be defined which measure the *averaged* performance over the batch
+      - The return value for every metric computation method is a one-element
+      tensor which returns its numerical value via the `.item()` call.
     '''
-    T_y = T_batch[1]  # samples default to second item in batch (recommended)
-    batch_size = T_y.size(0)
+    batch_size = T_out.size(0)
     for metric in self.evaluation_metrics:
-      T_value = self.compute_batch_metric(metric, T_out, T_y, batch_size)
+      T_value = getattr(self, 'compute_batch_'+metric)(T_out, batch)
       self.curr_iter_stats[metric]['current'] = T_value
       self.curr_iter_stats[metric]['running'].update(T_value.item() * batch_size, batch_size)
 
@@ -604,14 +611,13 @@ class Experiment:
     '''
     pass
 
-  def _output_batch(self, T_batch):
-    T_x = T_batch[0]  # samples default to first item in batch (recommended)
-    return self.model(T_x)
+  def _output_batch(self, batch):
+    return self.model(self.batch_x(batch))
 
   def _epochal_subprocedure(self, context, train_mode, dataloader, num_epochs, epoch_end):
     '''
     Notes:
-      `T_batch` is agnostic to your dataset which can return more than 2 for
+      `batch` is agnostic to your dataset which can return more than 2 for
       __getitem__ calls
     '''
     if not train_mode:
@@ -622,12 +628,12 @@ class Experiment:
       self._init_iter_stats()   # reset stats at every epoch
       if train_mode:
         self.model.train()
-      for i, T_batch in enumerate(dataloader, 0):
-        T_batch = to_device(choose_device(), *T_batch)
+      for i, batch in enumerate(dataloader, 0):
+        batch = to_device(choose_device(), *batch)
         if train_mode:
           self.optimizer.zero_grad()  # zeroise parameter gradients
-        T_out = self._output_batch(T_batch)
-        self._update_iter_stats(T_out, T_batch)
+        T_out = self._output_batch(batch)
+        self._update_iter_stats(T_out, batch)
         T_loss = self.curr_iter_stats['loss']['current']
         if train_mode:
           T_loss.backward()           # calc gradients
@@ -674,3 +680,13 @@ class Experiment:
     '''
     self.load('best')
     self._epochal_subprocedure('analyze', False, self.analyze_loader, 1, self._analyze_epoch_end)
+
+  ######## Static helper methods #######################################################################################
+
+  @staticmethod
+  def batch_x(batch):
+    return batch[0]  # samples default to first item in batch (recommended)
+
+  @staticmethod
+  def batch_y(batch):
+    return batch[1]  # labels default to second item in batch (recommended)
