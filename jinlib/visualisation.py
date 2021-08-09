@@ -8,9 +8,9 @@ from .general import save_pickle
 
 def plot_confusion_matrix(classnames, confusion_matrix, experiment_dir: Path,
   figsize=None, annot=True, cmap='Greens', dpi=300, filename='confusion_matrix.png', save_data=True):
-  outpath = str(experiment_dir.resolve() / filename)
+  outpath = experiment_dir / filename
   if save_data:
-    save_pickle({'classnames': classnames, 'confusion_matrix': confusion_matrix}, outpath + '.pkl')
+    save_pickle({'classnames': classnames, 'confusion_matrix': confusion_matrix}, outpath.with_suffix('.pkl'))
   if figsize:
     plt.figure(figsize)
   else:
@@ -21,15 +21,15 @@ def plot_confusion_matrix(classnames, confusion_matrix, experiment_dir: Path,
   hm.set_xticklabels(classnames, rotation=-90)
   hm.set_yticklabels(classnames, rotation=0)
   hm.set_title('Confusion matrix (%)')
-  plt.savefig(outpath, dpi=dpi)
+  plt.savefig(str(outpath.resolve()), dpi=dpi)
   plt.close()
-  print(f'Confusion matrix plot saved to {outpath}')
+  print(f'Confusion matrix plot saved to {str(outpath.resolve())}')
 
 def plot_classwise_accuracies(classnames, classwise_accuracies, experiment_dir: Path,
   figsize=None, color='b', dpi=300, filename='classwise_accuracies.png', save_data=True):
-  outpath = str(experiment_dir.resolve() / filename)
+  outpath = experiment_dir / filename
   if save_data:
-    save_pickle({'classnames': classnames, 'classwise_accuracies': classwise_accuracies}, outpath + '.pkl')
+    save_pickle({'classnames': classnames, 'classwise_accuracies': classwise_accuracies}, outpath.with_suffix('.pkl'))
   if figsize:
     plt.figure(figsize)
   else:
@@ -45,6 +45,6 @@ def plot_classwise_accuracies(classnames, classwise_accuracies, experiment_dir: 
   bp.set(xlim=(0, 100))
   bp.set_title('Classwise Accuracies (%)')
   sns.despine(left = True, bottom = True)
-  plt.savefig(outpath, dpi=dpi)
+  plt.savefig(str(outpath.resolve()), dpi=dpi)
   plt.close()
-  print(f'Classwise accuracies plot saved to {outpath}')
+  print(f'Classwise accuracies plot saved to {str(outpath.resolve())}')
