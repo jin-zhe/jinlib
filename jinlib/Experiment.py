@@ -13,15 +13,15 @@ from .pytorch import choose_device, get_activation, get_loss_fn, get_optimizer, 
 from .general import config_path, save_yaml, set_logger
 from .Configuration import Configuration
 from .RunningAverage import RunningAverage
+from types import SimpleNamespace
 from .Stopwatch import Stopwatch
 
 class Experiment:
   __metaclass__ = ABCMeta
   def __init__(self, experiment_dir: Path, config_filename='config.yml'):
-    # Experiment configs
     self.experiment_dir = experiment_dir
-    self.config = Configuration(config_path(self.experiment_dir, filename=config_filename))
-
+    self.config = self._preprocess_config(config_filename)
+    
     # Attribute defaults before initializations
     self._context = None
     self._evaluation_metrics = None
@@ -230,10 +230,7 @@ class Experiment:
   @property
   def checkpoint_dir(self):
     if self._checkpoint_dir is None:
-      if self.config.checkpoints.dir:
-        self.checkpoint_dir = Path(self.config.checkpoints.dir)
-      else:
-        self.checkpoint_dir =  self.experiment_dir
+      self.checkpoint_dir = Path(self.config.checkpoints.dir)
     return self._checkpoint_dir
 
   @checkpoint_dir.setter
@@ -260,6 +257,39 @@ class Experiment:
   def best_checkpoint_path(self, value):
     self._best_checkpoint_path = value
 
+  ######## Preprocessors ###############################################################################################
+
+  def _preprocess_config(self, config_filename):
+    '''
+    Fill up optional configurations with default values
+    '''
+    config = Configuration(config_path(self.experiment_dir, filename=config_filename))
+
+    # Default checkpoints configurations
+    if not hasattr(config, 'checkpoints'):
+      config.checkpoints = SimpleNamespace()
+    if not hasattr(config.checkpoints, 'dir'):
+      config.checkpoints.dir = str(self.experiment_dir.resolve())
+    if not hasattr(config.checkpoints, 'identifier'):
+      config.checkpoints.identifier = 'pth'
+    if not hasattr(config.checkpoints, 'best_prefix'):
+      config.checkpoints.best_prefix = 'best'
+    if not hasattr(config.checkpoints, 'last_prefix'):
+      config.checkpoints.last_prefix = 'last'
+    if not hasattr(config.checkpoints, 'extension'):
+      config.checkpoints.extension = 'tar'
+    if not hasattr(config.checkpoints, 'stats_filename'):
+      config.checkpoints.stats_filename = 'stats.yml'
+
+    # Default logs configurations
+    if not hasattr(config, 'logs'):
+      config.logs = SimpleNamespace()
+    if not hasattr(config.logs, 'logger'):
+      config.logs.logger = 'log.log'
+    if not hasattr(config.logs, 'tensorboard'):
+      config.logs.tensorboard = 'TB_logdir'
+
+    return config
   ######## Initializations #############################################################################################
 
   def _init_evaluation_metrics(self):
@@ -401,10 +431,11 @@ class Experiment:
     }
 
   def resolve_checkpoint_path(self, choice):
-    basename = self.config.checkpoints.basename
-    suffix = getattr(self.config.checkpoints, choice + '_suffix')
-    extension = self.config.checkpoints.extension
-    checkpoint_filename = '{}.{}.{}'.format(basename, suffix, extension)
+    checkpoint_filename = '{}.{}.{}'.format(
+      getattr(self.config.checkpoints, choice + '_prefix'),
+      self.config.checkpoints.identifier,
+      self.config.checkpoints.extension
+    )
     return self.checkpoint_dir / checkpoint_filename
 
   def save_stats(self):

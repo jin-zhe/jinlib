@@ -17,14 +17,4 @@ regularization:
   L2: 0.001
 batch_size: 128
 num_epochs: 5
-checkpoints:
-  dir: 
-  basename: ckpt
-  best_suffix: best
-  last_suffix: last
-  extension: pth
-  stats_filename: stats.yml
-logs:
-  logger: log.log
-  tensorboard: TB_logdir
 remarks: Alternative choice off activation, optimization and hyperparameters

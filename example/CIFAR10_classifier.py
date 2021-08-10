@@ -82,8 +82,9 @@ class CIFAR10Classifier(Experiment):
 
 def main():
   exp1 = CIFAR10Classifier(Path('experiment_1'))
-  exp1.train()
-  exp1.analyze()
+  exp1.train()            # train for 5 epochs (see experiment config file)
+  exp1.train(resume=True) # train for another 5 epochs, resuming from best checkpoint
+  exp1.analyze()          # analyze based on based checkpoint
 
   exp2 = CIFAR10Classifier(Path('experiment_2'))
   exp2.train()

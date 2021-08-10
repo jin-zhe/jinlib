@@ -16,14 +16,4 @@ loss:
 regularization:
 batch_size: 4
 num_epochs: 5
-checkpoints:
-  dir: 
-  basename: ckpt
-  best_suffix: best
-  last_suffix: last
-  extension: pth
-  stats_filename: stats.yml
-logs:
-  logger: log.log
-  tensorboard: TB_logdir
 remarks: This experiment setting follows that of https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html
