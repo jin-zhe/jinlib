@@ -270,14 +270,12 @@ class Experiment:
       config.checkpoints = SimpleNamespace()
     if not hasattr(config.checkpoints, 'dir'):
       config.checkpoints.dir = str(self.experiment_dir.resolve())
-    if not hasattr(config.checkpoints, 'identifier'):
-      config.checkpoints.identifier = 'pth'
     if not hasattr(config.checkpoints, 'best_prefix'):
       config.checkpoints.best_prefix = 'best'
     if not hasattr(config.checkpoints, 'last_prefix'):
       config.checkpoints.last_prefix = 'last'
-    if not hasattr(config.checkpoints, 'extension'):
-      config.checkpoints.extension = 'tar'
+    if not hasattr(config.checkpoints, 'suffix'):
+      config.checkpoints.suffix = '.pth.tar'
     if not hasattr(config.checkpoints, 'stats_filename'):
       config.checkpoints.stats_filename = 'stats.yml'
 
@@ -435,10 +433,9 @@ class Experiment:
     }
 
   def resolve_checkpoint_path(self, choice):
-    checkpoint_filename = '{}.{}.{}'.format(
+    checkpoint_filename = '{}{}'.format(
       getattr(self.config.checkpoints, choice + '_prefix'),
-      self.config.checkpoints.identifier,
-      self.config.checkpoints.extension
+      self.config.checkpoints.suffix
     )
     return self.checkpoint_dir / checkpoint_filename
 
