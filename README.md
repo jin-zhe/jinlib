@@ -28,10 +28,9 @@ batch_size: 4               # Mini-batch size for dataloaders
 num_epochs: 5               # Number of training epochs
 checkpoints:                # Checkpoint related configuration [OPTIONAL]
   dir:                      # Directory under which checkpoints are saved [DEFAULT]. None indicates experiment directory
-  identifier: pth           # Identifier name of each checkpoint [DEFAULT]
   best_prefix: best         # Prefix of the best checkpoint [DEFAULT]. E.g. best.pth.tar
   last_prefix: last         # Prefix of the last checkpoint [DEFAULT]. E.g. last.pth.tar
-  extension: tar            # File extension for checkpoint files [DEFAULT]
+  suffix: .pth.tar          # Filename suffix for checkpoint files [DEFAULT]
   stats_filename: stats.yml # Filename for reviewing best and last checkpoint statistics [DEFAULT]. It will be saved in the same directory as checkpoints
 logs:                       # Logging related configuration [OPTIONAL]
   logger: log.log           # Filename which logger will log to [DEFAULT]. It sits in the same directory as the experiment
