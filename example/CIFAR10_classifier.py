@@ -82,7 +82,7 @@ class CIFAR10Classifier(Experiment):
 
 def main():
   exp1 = CIFAR10Classifier(Path('experiment_1'))
-  # exp1.train()
+  exp1.train()
   exp1.analyze()
 
   exp2 = CIFAR10Classifier(Path('experiment_2'))

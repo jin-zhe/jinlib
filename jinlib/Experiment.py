@@ -438,7 +438,7 @@ class Experiment:
 
   def resume(self):
     '''
-    Override if more attributes are to be updated (using returned checkpoint)
+    Extend if more attributes are to be updated (using returned checkpoint)
     '''
     if self.has_last_checkpoint():
       checkpoint = self.load('last')
@@ -475,7 +475,7 @@ class Experiment:
 
   def is_new_best(self, context='validation'):
     '''
-    Override if different criteria for selecting best epoch is used
+    Extend if different criteria for selecting best epoch is used
     '''
     metric = self.criterion_metric
     curr_val = self.curr_epoch_stats[context][metric]
@@ -489,10 +489,11 @@ class Experiment:
 
   def _update_iter_stats(self, T_out, batch):
     '''
+    DO NOT OVERRIDE! EXTEND AS NEEDED!
     This method defines which calculations are to be done for every batch and
     what iteration states are to be updated/accumulated. It will compute
     every metric listed in `self.evaluation_metrics` and update
-    `self.curr_iter_stats`. Override for specifying additional batch-specific
+    `self.curr_iter_stats`. Extend for specifying additional batch-specific
     computations and data to withhold across iterations in an epoch.
 
     Args:
@@ -584,10 +585,19 @@ class Experiment:
     summary(self.model, input_dim)
 
   ######## Train/Evaluation/Test  ######################################################################################
+  def _train_epoch_begin(self):
+    '''
+    DO NOT OVERRIDE! EXTEND AS NEEDED!
+    Routines for beginning each epoch under train context.
+    Need to set context again as it is reset at every end epoch routine by
+    default. This is a recommended pattern to follow.
+    '''
+    self.context = 'train'
+
   def _train_epoch_end(self):
     '''
-    Epoch end routines for train loop
-    Recommended not to override
+    DO NOT OVERRIDE! EXTEND AS NEEDED!
+    Routines for ending each epoch under train context.
     '''
     self._update_train_stats()
     self.validation()
@@ -596,26 +606,61 @@ class Experiment:
     self.record_progress()
     self.save()
     self.curr_epoch_stats['epoch'] += 1
+    self.reset_context()
   
+  def _validation_epoch_begin(self):
+    '''
+    DO NOT OVERRIDE! EXTEND AS NEEDED!
+    Routines for beginning each epoch under validation context.
+    Need to set context again as it is reset at every end epoch routine by
+    default. This is a recommended pattern to follow.
+    '''
+    self.context = 'validation'
+
   def _validation_epoch_end(self):
+    '''
+    DO NOT OVERRIDE! EXTEND AS NEEDED!
+    Routines for ending each epoch under validation context.
+    '''
     self._update_validation_stats()
+    self.reset_context()
+
+  def _test_epoch_begin(self):
+    '''
+    DO NOT OVERRIDE! EXTEND AS NEEDED!
+    Routines for beginning each epoch under test context.
+    Need to set context again as it is reset at every end epoch routine by
+    default. This is a recommended pattern to follow.
+    '''
+    self.context = 'test'
 
   def _test_epoch_end(self):
     '''
-    To override
+    DO NOT OVERRIDE! EXTEND AS NEEDED!
+    Routines for ending each epoch under test context.
     '''
-    pass
+    self.reset_context()
+
+  def _analyze_epoch_begin(self):
+    '''
+    DO NOT OVERRIDE! EXTEND AS NEEDED!
+    Routines for beginning each epoch under analyze context.
+    Need to set context again as it is reset at every end epoch routine by
+    default. This is a recommended pattern to follow.
+    '''
+    self.context = 'analyze'
 
   def _analyze_epoch_end(self):
     '''
-    To override
+    DO NOT OVERRIDE! EXTEND AS NEEDED!
+    Routines for ending each epoch under analyze context.
     '''
-    pass
+    self.reset_context()
 
   def _output_batch(self, batch):
     return self.model(self.batch_x(batch))
 
-  def _epochal_subprocedure(self, context, train_mode, dataloader, num_epochs, epoch_end):
+  def _epochal_subprocedure(self, train_mode, dataloader, num_epochs, epoch_begin, epoch_end):
     '''
     Notes:
       `batch` is agnostic to your dataset which can return more than 2 for
@@ -625,7 +670,7 @@ class Experiment:
       self.model.eval()
       torch.set_grad_enabled(False)
     for _ in range(num_epochs):
-      self.context = context    # sets context at start of every epoch
+      epoch_begin()
       self._init_iter_stats()   # reset stats at every epoch
       if train_mode:
         self.model.train()
@@ -642,9 +687,9 @@ class Experiment:
       epoch_end()               # run end epoch routine
     if not train_mode:
       torch.set_grad_enabled(True)
-    self.reset_context()  # resets context at end of this subprocedure
 
   def train(self, resume=False):
+    self.context = 'train'
     if resume:
       self.resume()
     else:
@@ -655,32 +700,37 @@ class Experiment:
     self.logger(self.model)
     self.log_training_commencement(self.num_epochs)
     elapsed = Stopwatch()
-    self._epochal_subprocedure('train', True, self.train_loader, self.num_epochs, self._train_epoch_end)
+    self._epochal_subprocedure(True, self.train_loader, self.num_epochs, self._train_epoch_begin, self._train_epoch_end)
     self.log_training_completion(elapsed())
     self.record_hyperparams()
 
   def validation(self, load_best=False):
     '''
-    Note that we do not normally load the best checkpoint because
-    validation is a subroutine at the end of every training epoch
+    Note that we do not normally load the best checkpoint because validation is
+    a subroutine at the end of every training epoch.
     '''
+    self.context = 'validation'
     if load_best:
       self.load('best')
-    self._epochal_subprocedure('validation', False, self.validation_loader, 1, self._validation_epoch_end)
+    self._epochal_subprocedure(False, self.validation_loader, 1, self._validation_epoch_begin, self._validation_epoch_end)
   
   def test(self):
     '''
-    To override
+    To override/extend as needed but ensure context is set as it affects
+    checkpoint loading.
     '''
+    self.context = 'test'
     self.load('best')
-    self._epochal_subprocedure('test', False, self.test_loader, 1, self._test_epoch_end)
+    self._epochal_subprocedure(False, self.test_loader, 1, self._test_epoch_begin, self._test_epoch_end)
 
   def analyze(self):
     '''
-    To override
+    To override/extend as needed but ensure context is set as it affects
+    checkpoint loading.
     '''
+    self.context = 'analyze'
     self.load('best')
-    self._epochal_subprocedure('analyze', False, self.analyze_loader, 1, self._analyze_epoch_end)
+    self._epochal_subprocedure(False, self.analyze_loader, 1, self._analyze_epoch_begin, self._analyze_epoch_end)
 
   ######## Static helper methods #######################################################################################
 
