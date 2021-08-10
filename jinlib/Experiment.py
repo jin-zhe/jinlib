@@ -431,8 +431,7 @@ class Experiment:
         self.model,
         self.optimizer
       )
-      self.logger('Resuming epoch {} from checkpoint {}'.format(
-        checkpoint['curr_epoch_stats']['epoch'], str(checkpoint_path.resolve())))
+      self.logger('Loaded checkpoint "{}"'.format(str(checkpoint_path.resolve())))
     else:
       raise ValueError('Unknown checkpoint type {}!'.format(choice))
     return checkpoint
@@ -445,7 +444,9 @@ class Experiment:
       checkpoint = self.load('last')
       self.curr_epoch_stats = checkpoint['curr_epoch_stats']
       self.best_epoch_stats = checkpoint['best_epoch_stats']
-      self.curr_epoch_stats['epoch'] += 1
+      self.logger('Resuming from epoch {}'.format(self.curr_epoch_stats['epoch']))
+      if self.context == 'train':
+        self.curr_epoch_stats['epoch'] += 1
       return checkpoint
     else:
       raise ValueError('Resume indicated but no last checkpoint found in {}. Ignoring resume.'.format(str(self.experiment_dir)))
