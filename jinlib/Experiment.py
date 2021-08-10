@@ -289,6 +289,10 @@ class Experiment:
     if not hasattr(config.logs, 'tensorboard'):
       config.logs.tensorboard = 'TB_logdir'
 
+    # Default regularisation configuration
+    if not hasattr(config, 'regularization'):
+      config.regularization = None
+
     return config
   ######## Initializations #############################################################################################
 
