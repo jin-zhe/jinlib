@@ -16,7 +16,7 @@ class Subset(Dataset):
     self.sample_i = sample_i  # index of sample data in each dataset example
 
   def __getitem__(self, idx):
-    example = self.dataset[self.indices[idx]]
+    example = list(self.dataset[self.indices[idx]])
     if self.transform:
       example[self.sample_i] = self.transform(example[self.sample_i])
     return example
