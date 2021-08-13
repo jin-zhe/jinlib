@@ -287,6 +287,10 @@ class Experiment:
     if not hasattr(config.logs, 'tensorboard'):
       config.logs.tensorboard = 'TB_logdir'
 
+    # Default evaluation_metrics configuration
+    if not hasattr(config, 'evaluation_metrics'):
+      config.evaluation_metrics = ['loss']
+
     # Default regularisation configuration
     if not hasattr(config, 'regularization'):
       config.regularization = None
