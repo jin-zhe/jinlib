@@ -15,8 +15,7 @@ def plot_confusion_matrix(classnames, confusion_matrix, experiment_dir: Path,
     plt.figure(figsize)
   else:
     plt.figure()
-  confusion_matrix *= 100 # convert to percentage
-  hm = sns.heatmap(confusion_matrix, vmin=0, vmax=100, annot=annot,
+  hm = sns.heatmap(confusion_matrix*100, vmin=0, vmax=100, annot=annot,
     cmap=cmap, square=True, fmt='.1f')
   hm.set_xticklabels(classnames, rotation=-90)
   hm.set_yticklabels(classnames, rotation=0)
@@ -34,7 +33,7 @@ def plot_classwise_accuracies(classnames, classwise_accuracies, experiment_dir: 
     plt.figure(figsize)
   else:
     plt.figure()
-  df = pd.DataFrame((classwise_accuracies.numpy()*100), columns=['Accuracy'])
+  df = pd.DataFrame((classwise_accuracies*100), columns=['Accuracy'])
   df['Label'] = classnames
   bp = sns.barplot(data=df, x='Accuracy', y='Label', order=df.sort_values('Accuracy').Label, edgecolor='w')
   for bar in bp.patches:

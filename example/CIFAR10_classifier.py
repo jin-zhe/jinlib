@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch
 import torchvision
 import torchvision.transforms as transforms
+from sklearn.metrics import confusion_matrix
 
 from types import SimpleNamespace
 from pathlib import Path
@@ -63,22 +64,24 @@ class CIFAR10Classifier(Experiment):
   def _init_iter_stats(self):
     super()._init_iter_stats()
     if self.context == 'analyze':
-      self.curr_iter_stats['confusion_matrix'] = torch.zeros(len(self.classes), len(self.classes), dtype=torch.float64)
+      self.curr_iter_stats['true_labels'] = []
+      self.curr_iter_stats['pred_labels'] = []
 
   def _update_iter_stats(self, T_out, batch):
     super()._update_iter_stats(T_out, batch)
     if self.context == 'analyze':
       _, T_predictions = torch.max(T_out, 1)
-      for true_label, pred_label in zip(batch[1].view(-1), T_predictions.view(-1)):
-        self.curr_iter_stats['confusion_matrix'][true_label.long()][pred_label.long()] += 1
+      self.curr_iter_stats['true_labels'] += list(self.batch_y(batch).cpu().numpy())
+      self.curr_iter_stats['pred_labels'] += list(T_predictions.cpu().numpy())
 
   def analyze(self):
     super().analyze()
-    confusion_matrix = self.curr_iter_stats['confusion_matrix']
-    confusion_matrix = confusion_matrix / confusion_matrix.sum(axis=1) # normalize
-    classwise_accuracies = confusion_matrix.diag()
-    plot_confusion_matrix(self.classes, confusion_matrix, self.experiment_dir)
-    plot_classwise_accuracies(self.classes, classwise_accuracies, self.experiment_dir)
+    true_labels = self.curr_iter_stats['true_labels']
+    pred_labels = self.curr_iter_stats['pred_labels']
+    conf_mat = confusion_matrix(true_labels, pred_labels, normalize='true')
+    cls_acc = conf_mat.diagonal()
+    plot_confusion_matrix(self.classes, conf_mat, self.experiment_dir)
+    plot_classwise_accuracies(self.classes, cls_acc, self.experiment_dir)
 
 def main():
   exp1 = CIFAR10Classifier(Path('experiment_1'))
