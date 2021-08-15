@@ -1,7 +1,7 @@
 ---
-evaluation_metrics:         # The metrics which will be calculated for every epoch
-  - loss                    # Can be omitted as loss is a compulsory metric
-  - accuracy*               # Asterisk indicates to set as criterion metric for selecting best epoch
+evaluation_metrics:         # [OPTIONAL] The metrics which will be calculated for every epoch
+  - loss*                   # (DEFAULT VALUE) Can be omitted as loss is a compulsory metric. Asterisk indicates to set as criterion metric for selecting best epoch
+  - accuracy                # Also computes accuracy for every batch
 activation:                 # Activation function
   choice: ReLU              # Same name as function in in torch.nn
   kwargs: {}                # Parameters for activation function call. {} to indicate PyTorch defaults
@@ -13,17 +13,17 @@ optimization:               # Optimization function
 loss:                       # Loss function
   choice: CrossEntropyLoss  # Same name as function in in torch.nn
   kwargs: {}                # Parameters for activation function call. {} to indicate PyTorch defaults
-regularization:             # Regularization terms (currently only supports L2)
-  L2: 0.001                 # Lagrange multiplier (i.e. lambda) value
+regularization:             # [OPTIONAL] Regularization terms (currently only supports L2)
+  L2: 0.001                 # Lagrange multiplier (i.e. lambda) value for L2
 batch_size: 4               # Mini-batch size for dataloaders
 num_epochs: 5               # Number of training epochs
-checkpoints:                # Checkpoint related configuration [OPTIONAL]
-  dir:                      # Directory under which checkpoints are saved [DEFAULT]. None indicates experiment directory
-  best_prefix: best         # Prefix of the best checkpoint [DEFAULT]. E.g. best.pth.tar
-  last_prefix: last         # Prefix of the last checkpoint [DEFAULT]. E.g. last.pth.tar
-  suffix: .pth.tar          # Filename suffix for checkpoint files [DEFAULT]
-  stats_filename: stats.yml # Filename for reviewing best and last checkpoint statistics [DEFAULT]. It will be saved in the same directory as checkpoints
-logs:                       # Logging related configuration [OPTIONAL]
-  logger: log.log           # Filename which logger will log to [DEFAULT]. It sits in the same directory as the experiment
-  tensorboard: TB_logdir    # The logdir for Tensorboard [DEFAULT]. It sits in the same directory as the experiment
-remarks: This is a great experiment!
+checkpoints:                # [OPTIONAL] Checkpoint related configuration
+  dir: .                    # (DEFAULT VALUE) Directory under which checkpoints are saved.
+  best_prefix: best         # (DEFAULT VALUE) Prefix of the best checkpoint. E.g. best.pth.tar
+  last_prefix: last         # (DEFAULT VALUE) Prefix of the last checkpoint. E.g. last.pth.tar
+  suffix: .pth.tar          # (DEFAULT VALUE) Filename suffix for checkpoint files
+  stats_filename: stats.yml # (DEFAULT VALUE) Filename for reviewing best and last checkpoint statistics. It will be saved in the same directory as checkpoints
+logs:                       # [OPTIONAL] Logging related configuration
+  logger: log.log           # (DEFAULT VALUE) Filename which logger will log to. It sits in the same directory as the experiment
+  tensorboard: TB_logdir    # (DEFAULT VALUE) The logdir for Tensorboard [DEFAULT]. It sits in the same directory as the experiment
+remarks: Great experiment!  # [OPTIONAL]
