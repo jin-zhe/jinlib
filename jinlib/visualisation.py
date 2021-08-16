@@ -17,7 +17,9 @@ def plot_confusion_matrix(classnames, confusion_matrix, experiment_dir: Path,
     plt.figure()
   hm = sns.heatmap(confusion_matrix*100, vmin=0, vmax=100, annot=annot,
     cmap=cmap, square=True, fmt='.1f')
+  hm.set_xticks(list(range(len(classnames))))   # see issue https://github.com/matplotlib/matplotlib/issues/17736/
   hm.set_xticklabels(classnames, rotation=-90)
+  hm.set_yticks(list(range(len(classnames))))   # see issue https://github.com/matplotlib/matplotlib/issues/17736/
   hm.set_yticklabels(classnames, rotation=0)
   hm.set_title('Confusion matrix (%)')
   plt.savefig(str(outpath.resolve()), dpi=dpi)
