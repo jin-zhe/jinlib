@@ -12,7 +12,7 @@ def plot_confusion_matrix(classnames, confusion_matrix, experiment_dir: Path,
   if save_data:
     save_pickle({'classnames': classnames, 'confusion_matrix': confusion_matrix}, outpath.with_suffix('.pkl'))
   if figsize:
-    plt.figure(figsize)
+    plt.figure(figsize=figsize)
   else:
     plt.figure()
   hm = sns.heatmap(confusion_matrix*100, vmin=0, vmax=100, annot=annot,
@@ -32,7 +32,7 @@ def plot_classwise_accuracies(classnames, classwise_accuracies, experiment_dir: 
   if save_data:
     save_pickle({'classnames': classnames, 'classwise_accuracies': classwise_accuracies}, outpath.with_suffix('.pkl'))
   if figsize:
-    plt.figure(figsize)
+    plt.figure(figsize=figsize)
   else:
     plt.figure()
   df = pd.DataFrame((classwise_accuracies*100), columns=['Accuracy'])
