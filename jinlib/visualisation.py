@@ -55,7 +55,7 @@ def plot_confusion_matrix(classnames, confusion_matrix, experiment_dir: Path, an
   hm = sns.heatmap(data, vmin=0, vmax=100, xticklabels=1, yticklabels=1, annot=annot, cmap=cmap, square=True, fmt='.1f', annot_kws={'fontsize': annot_size}, ax=ax)
   plt.setp(hm.get_xticklabels(), fontsize=tick_size)
   plt.setp(hm.get_yticklabels(), fontsize=tick_size)
-  plt.title('Confusion matrix (%)')
+  plt.title('Confusion Matrix (%)')
   plt.xlabel('Predicted')
   plt.ylabel('Ground Truth')
   plt.tight_layout()
