@@ -602,11 +602,11 @@ class Experiment:
     stmt = tabulate(rows, headers=headers, tablefmt="fancy_grid")
     self.logger('\n' + stmt)
 
-  def log_training_commencement(self, num_epochs):
-    self.logger('Commencing training for experiment "{}" with {} epochs.'.format(self.experiment_dir, num_epochs))
+  def log_training_commencement(self):
+    self.logger('Commencing training for experiment "{}" with {} epochs.'.format(self.experiment_dir, self.num_epochs))
 
   def log_training_completion(self, elapsed_time):
-    self.logger('Training {} completed after {}. Epoch {} is the best with validation {}: {}'.format(
+    self.logger('Training "{}" completed after {}. Epoch {} is the best with validation {}: {}'.format(
       self.experiment_dir,
       elapsed_time,
       self.best_epoch_stats['epoch'],
@@ -696,20 +696,26 @@ class Experiment:
   def _output_batch(self, batch):
     return self.model(self.batch_x(batch))
 
-  def _epochal_subprocedure(self, train_mode, dataloader, num_epochs, epoch_begin, epoch_end):
+  def _batched_procedure(self, train_mode, dataloader, max_steps, epoch_begin=None, epoch_end=None, step_choice="epoch"):
     '''
     Notes:
       `batch` is agnostic to your dataset which can return more than 2 for
       __getitem__ calls
     '''
+    if step_choice not in ['epoch','iteration']:
+      raise ValueError('Unkonwn step choice "{}"!'.format(step_choice))
     if not train_mode:
       self.model.eval()
       torch.set_grad_enabled(False)
-    for _ in range(num_epochs):
-      epoch_begin()
+
+    curr_step = 0
+    while curr_step < max_steps:
+      if epoch_begin is not None:
+        epoch_begin()
       self._init_iter_stats()   # reset stats at every epoch
       if train_mode:
         self.model.train()
+
       for i, batch in enumerate(dataloader, 0):
         batch = to_device(choose_device(), *batch)
         if train_mode:
@@ -720,7 +726,16 @@ class Experiment:
         if train_mode:
           T_loss.backward()           # calc gradients
           self.optimizer.step()       # update params
-      epoch_end()               # run end epoch routine
+        if step_choice == 'iteration':
+          curr_step += 1
+          if not curr_step < max_steps:
+            break
+          
+      if epoch_end is not None:
+        epoch_end()               # run end epoch routine
+      if step_choice == 'epoch':
+        curr_step += 1
+
     if not train_mode:
       torch.set_grad_enabled(True)
 
@@ -734,9 +749,9 @@ class Experiment:
     
     self.print_model()
     self.logger(self.model)
-    self.log_training_commencement(self.num_epochs)
+    self.log_training_commencement()
     elapsed = Stopwatch()
-    self._epochal_subprocedure(True, self.train_loader, self.num_epochs, self._train_epoch_begin, self._train_epoch_end)
+    self._batched_procedure(True, self.train_loader, self.num_epochs, self._train_epoch_begin, self._train_epoch_end)
     self.log_training_completion(elapsed())
     self.record_hyperparams()
 
@@ -748,7 +763,7 @@ class Experiment:
     self.context = 'validation'
     if load_best:
       self.load('best')
-    self._epochal_subprocedure(False, self.validation_loader, 1, self._validation_epoch_begin, self._validation_epoch_end)
+    self._batched_procedure(False, self.validation_loader, 1, self._validation_epoch_begin, self._validation_epoch_end)
   
   def test(self):
     '''
@@ -757,7 +772,7 @@ class Experiment:
     '''
     self.context = 'test'
     self.load('best')
-    self._epochal_subprocedure(False, self.test_loader, 1, self._test_epoch_begin, self._test_epoch_end)
+    self._batched_procedure(False, self.test_loader, 1, self._test_epoch_begin, self._test_epoch_end)
 
   def analyze(self):
     '''
@@ -766,7 +781,7 @@ class Experiment:
     '''
     self.context = 'analyze'
     self.load('best')
-    self._epochal_subprocedure(False, self.analyze_loader, 1, self._analyze_epoch_begin, self._analyze_epoch_end)
+    self._batched_procedure(False, self.analyze_loader, 1, self._analyze_epoch_begin, self._analyze_epoch_end)
 
   ######## Static helper methods #######################################################################################
 
