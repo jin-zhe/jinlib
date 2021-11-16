@@ -313,7 +313,7 @@ class Experiment:
     # assignments
     self.criterion_metric = list(picked)[0]
     metrics = picked | not_picked
-    metrics.remove('loss')
+    metrics.discard('loss')
     self.evaluation_metrics = ['loss'] + list(metrics) # force loss to be the first metric in sequence
 
   def _init_logger(self):
