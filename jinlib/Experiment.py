@@ -23,7 +23,7 @@ class Experiment:
     self.config = self._preprocess_config(config_filename)
     
     # Attribute defaults before initializations
-    self._context = None
+    self._context = None              # currently only used for resume method
     self._evaluation_metrics = None
     self._criterion_metric = None
     self._logger = None
@@ -596,7 +596,7 @@ class Experiment:
 
   def log_progress(self):
     is_curr_best = self.curr_epoch_stats == self.best_epoch_stats
-    epoch_str = 'Epoch #{}{}'.format(self.curr_epoch_stats['epoch'], '*' if is_curr_best else '')
+    epoch_str = 'Epoch{} #{}'.format('*' if is_curr_best else ' ', self.curr_epoch_stats['epoch'])
     headers = [epoch_str] + [m.capitalize() for m in self.evaluation_metrics]
     rows = [[c.capitalize()] + [self.format_performance(self.curr_epoch_stats[c][m],m) for m in self.evaluation_metrics] for c in ['train', 'validation']]
     stmt = tabulate(rows, headers=headers, tablefmt="fancy_grid")
