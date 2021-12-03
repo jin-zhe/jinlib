@@ -133,7 +133,8 @@ def to_device(device, *tensors):
   '''
   Copies tensors to device and return
   '''
-  return [t.to(device) for t in tensors]
+  out = [t.to(device) for t in tensors]
+  return out[0] if len(out) == 1 else out
 
 def copy_params(model):
   '''
