@@ -27,6 +27,18 @@ def download(url, file_path: Path, overwrite_existing=False):
   urllib.request.urlretrieve(url, file_path)
   print('Download complete!')
 
+def dp2(number: float) -> str:
+  '''
+  Formats float to 2 decimal places string
+  '''
+  return '{:.2f}'.format(number)
+
+def dp4(number: float) -> str:
+  '''
+  Formats float to 4 decimal places string
+  '''
+  return '{:.4f}'.format(number)
+
 def ls(dir_path: Path, pattern='*'):
   '''
   Lists everything in the given directory

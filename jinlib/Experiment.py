@@ -10,7 +10,7 @@ import logging
 import shutil
 
 from .pytorch import choose_device, get_activation, get_loss_fn, get_optimizer, load_checkpoint, save_checkpoint, to_device
-from .general import config_path, save_yaml, set_logger
+from .general import config_path, dp4, save_yaml, set_logger
 from .Configuration import Configuration
 from .RunningAverage import RunningAverage
 from types import SimpleNamespace
@@ -592,7 +592,7 @@ class Experiment:
     if metric == 'accuracy':
       unit = '%'
       value *= 100
-    return '{:.4f}{}'.format(value, unit)
+    return dp4(value) + unit
 
   def log_progress(self):
     is_curr_best = self.curr_epoch_stats == self.best_epoch_stats
