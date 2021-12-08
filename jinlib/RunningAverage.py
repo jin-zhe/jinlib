@@ -6,9 +6,9 @@ class RunningAverage():
     self.accum = 0.0
     self.counts = 0
 
-  def update(self, val, batch_size):
-    self.accum += val
-    self.counts += batch_size
+  def update(self, bag_sum, bag_size=1):
+    self.accum += bag_sum
+    self.counts += bag_size
 
   def __call__(self):
     return self.accum/self.counts if self.counts != 0 else None
