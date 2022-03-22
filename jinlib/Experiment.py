@@ -407,7 +407,7 @@ class Experiment:
     self.optimizer = get_optimizer(
       self.config.optimization.choice,
       self.model,
-      kwargs
+      **kwargs
     )
 
   def _init_loss_fn(self):
@@ -465,7 +465,7 @@ class Experiment:
       checkpoint = load_checkpoint(
         checkpoint_path,
         self.model,
-        self.optimizer
+        optimizer=self.optimizer
       )
       self.logger('Loaded checkpoint "{}"'.format(str(checkpoint_path.resolve())))
     else:
