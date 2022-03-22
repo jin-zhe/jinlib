@@ -459,12 +459,13 @@ class Experiment:
   def has_last_checkpoint(self):
     return self.last_checkpoint_path.is_file()
 
-  def load(self, choice):
-    if choice == 'last' or choice == 'best':
+  def load(self, choice, load_optimizer=True):
+    if choice in ['best', 'last']:
       checkpoint_path = getattr(self, '{}_checkpoint_path'.format(choice))
       checkpoint = load_checkpoint(
         checkpoint_path,
         self.model,
+        load_optimizer=load_optimizer, 
         optimizer=self.optimizer
       )
       self.logger('Loaded checkpoint "{}"'.format(str(checkpoint_path.resolve())))
