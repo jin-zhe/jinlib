@@ -166,7 +166,7 @@ def save_checkpoint(file_path: Path, checkpoint: dict):
     os.mkdir(str(dir_path.resolve()))
   torch.save(checkpoint, file_path)
 
-def load_model(model: torch.nn.Module, state_dict: dict, state_key: str = 'model_state'):
+def load_model_state(model: torch.nn.Module, state_dict: dict, state_key: str = 'model_state'):
   '''
   Loads model with given state_dict.
   Args:
@@ -177,7 +177,7 @@ def load_model(model: torch.nn.Module, state_dict: dict, state_key: str = 'model
   model.load_state_dict(state_dict[state_key])
   model.to(choose_device())
 
-def load_optimizer(optimizer: torch.optim.Optimizer, state_dict: dict, state_key='optim_state'):
+def load_optimizer_state(optimizer: torch.optim.Optimizer, state_dict: dict, state_key='optim_state'):
   '''
   Loads optimizer with given state_dict.
   Args:
@@ -217,11 +217,11 @@ def load_checkpoint(ckpt_path: Path, model: torch.nn.Module, load_optimizer: boo
     raise FileNotFoundError("Checkpoint doesn't exist! {}".format(str(ckpt_path.resolve())))
 
   state_dict = torch.load(str(ckpt_path.resolve()))
-  load_model(model, state_dict)
+  load_model_state(model, state_dict)
   if load_optimizer:
     if optimizer is None:
       raise ArgumentError('load_optimizer flag is {} but optimizer is {}!'.format(load_optimizer, type(optimizer).__name__))
-    load_optimizer(optimizer, state_dict)
+    load_optimizer_state(optimizer, state_dict)
   else:
     logging.info('Not loading optimizer.')
   return state_dict
