@@ -65,14 +65,12 @@ def get_loss_fn(choice: str, kwargs: dict):
   except AttributeError:
     raise ValueError('Unknown loss function choice \'{}\'!'.format(choice))
 
-def get_optimizer(choice: str, kwargs: dict, model: torch.nn.Module):
+def get_optimizer(choice: str, model: torch.nn.Module, **kwargs):
   '''
   Return the optimizer of choice
   '''
-  if choice == 'Adam':
-    return torch.optim.Adam(model.parameters(), **kwargs)
-  if choice == 'SGD':
-    return torch.optim.SGD(model.parameters(), **kwargs)
+  if hasattr(torch.optim, choice):
+    return getattr(torch.optim, choice)(model.parameters(), **kwargs)
   else:
     raise ValueError('Unknown optimization choice!')
 

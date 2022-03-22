@@ -406,8 +406,8 @@ class Experiment:
           kwargs['weight_decay'] = self.config.regularization.L2
     self.optimizer = get_optimizer(
       self.config.optimization.choice,
-      kwargs,
-      self.model
+      self.model,
+      kwargs
     )
 
   def _init_loss_fn(self):
