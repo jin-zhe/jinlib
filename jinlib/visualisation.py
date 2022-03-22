@@ -81,7 +81,7 @@ def plot_classwise_accuracies(classnames, classwise_accuracies, experiment_dir: 
   data.sort_values('accuracy', inplace=True)
 
   # Plot accuracy line
-  lp = sns.lineplot(data=data, x='accuracy', y='classname', estimator=None, color='#00b894', ax=ax)
+  lp = sns.lineplot(data=data, x='accuracy', y='classname', estimator=None, color='#00b894', ax=ax, sort=False)
   ax.set(xlabel='Accuracy (%)', ylabel='Classes')
   plt.setp(lp.get_yticklabels(), fontsize=tick_size)
   
