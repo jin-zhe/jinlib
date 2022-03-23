@@ -289,7 +289,7 @@ class Experiment:
       config.checkpoints.suffix = '.pth.tar'
     if not hasattr(config.checkpoints, 'stats_filename'):
       config.checkpoints.stats_filename = 'stats.yml'
-    if not hasattr(config, 'state_dict_mappings'):
+    if not hasattr(config.checkpoints, 'state_dict_mappings'):
       config.checkpoints.state_dict_mappings = []
 
     # Default logs configurations

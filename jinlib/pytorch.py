@@ -176,10 +176,14 @@ def load_model_state(model: torch.nn.Module, state_dict: dict, state_dict_mappin
     state_key: (string) key in state_dict for value corresponding to model state dict
   '''
   # map old keys to new keys if any
+  model_state_dict = state_dict[state_key]
   for key_old, key_new in state_dict_mappings:
-    state_dict[key_new] = state_dict.pop(key_old)
+    if key_old in model_state_dict:
+      model_state_dict[key_new] = model_state_dict.pop(key_old)
+    else:
+      logging.warning('Key \"{}\" not found in model state dict!'.format(key_old))
 
-  model.load_state_dict(state_dict[state_key])
+  model.load_state_dict(model_state_dict)
   model.to(choose_device())
 
 def load_optimizer_state(optimizer: torch.optim.Optimizer, state_dict: dict, state_key='optim_state'):
