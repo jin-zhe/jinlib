@@ -166,14 +166,19 @@ def save_checkpoint(file_path: Path, checkpoint: dict):
     os.mkdir(str(dir_path.resolve()))
   torch.save(checkpoint, file_path)
 
-def load_model_state(model: torch.nn.Module, state_dict: dict, state_key: str = 'model_state'):
+def load_model_state(model: torch.nn.Module, state_dict: dict, state_dict_mappings: list, state_key: str = 'model_state'):
   '''
   Loads model with given state_dict.
   Args:
     model: (torch.nn.Module) model for which the parameters are loaded
     state_dict: (dict) loaded state_dict file
+    state_dict_mappings: (list) list of (old key, new key) pairs to map
     state_key: (string) key in state_dict for value corresponding to model state dict
   '''
+  # map old keys to new keys if any
+  for key_old, key_new in state_dict_mappings:
+    state_dict[key_new] = state_dict.pop(key_old)
+
   model.load_state_dict(state_dict[state_key])
   model.to(choose_device())
 
@@ -201,7 +206,7 @@ def load_optimizer_state(optimizer: torch.optim.Optimizer, state_dict: dict, sta
   if converted:
     logging.info('Converted loaded optimizer state_dict tensors from {} to {}.'.format(src_device, dst_device))
 
-def load_checkpoint(ckpt_path: Path, model: torch.nn.Module, load_optimizer: bool = True, optimizer: torch.optim.Optimizer = None):
+def load_checkpoint(ckpt_path: Path, model: torch.nn.Module, state_dict_mappings: list, load_optimizer: bool = True, optimizer: torch.optim.Optimizer = None):
   '''
   Loads state_dict from ckpt_path. If also indicated to load optimizer (default)
   and optimization object is provided, loads state_dict of optimizer assuming it
@@ -209,15 +214,15 @@ def load_checkpoint(ckpt_path: Path, model: torch.nn.Module, load_optimizer: boo
   Args:
     ckpt_path: (string) file path of checkpoint to be loaded
     model: (torch.nn.Module) model for which the parameters are loaded
+    state_dict_mappings: (list) list of (old key, new key) pairs to translate in the state_dict keys
     load_optimizer: (bool) flag for loading optimizer (default True)
-    optimizer: (torch.optim.Optimizer) optimizer whose state is to be loaded if
-               `load_optimizer` is set to True
+    optimizer: (torch.optim.Optimizer) optimizer whose state is to be loaded if `load_optimizer` is set to True
   '''  
   if not ckpt_path.is_file():
     raise FileNotFoundError("Checkpoint doesn't exist! {}".format(str(ckpt_path.resolve())))
 
   state_dict = torch.load(str(ckpt_path.resolve()))
-  load_model_state(model, state_dict)
+  load_model_state(model, state_dict, state_dict_mappings)
   if load_optimizer:
     if optimizer is None:
       raise ArgumentError('load_optimizer flag is {} but optimizer is {}!'.format(load_optimizer, type(optimizer).__name__))

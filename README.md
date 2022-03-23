@@ -32,6 +32,7 @@ checkpoints:                # [OPTIONAL] Checkpoint related configuration
   last_prefix: last         # (DEFAULT VALUE) Prefix of the last checkpoint. E.g. last.pth.tar
   suffix: .pth.tar          # (DEFAULT VALUE) Filename suffix for checkpoint files
   stats_filename: stats.yml # (DEFAULT VALUE) Filename for reviewing best and last checkpoint statistics. It will be saved in the same directory as checkpoints
+  state_dict_mappings: []   # (DEFAULT VALUE) Key mappings to translate before loading in the state dictionary. E.g. [(key_1_old, key_1_new), ...]
 logs:                       # [OPTIONAL] Logging related configuration
   logger: log.log           # (DEFAULT VALUE) Filename which logger will log to. It sits in the same directory as the experiment
   tensorboard: TB_logdir    # (DEFAULT VALUE) The logdir for Tensorboard [DEFAULT]. It sits in the same directory as the experiment

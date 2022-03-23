@@ -43,6 +43,7 @@ class Experiment:
     self._checkpoint_dir = None
     self._last_checkpoint_path = None
     self._best_checkpoint_path = None
+    self._state_dict_mappings = None
     self.curr_epoch_stats = None
     self.best_epoch_stats = None
     self.curr_iter_stats = None
@@ -257,6 +258,16 @@ class Experiment:
   def best_checkpoint_path(self, value):
     self._best_checkpoint_path = value
 
+  @property
+  def state_dict_mappings(self):
+    if self._state_dict_mappings is None:
+      self.state_dict_mappings = self.config.checkpoints.state_dict_mappings
+    return self._state_dict_mappings
+  
+  @state_dict_mappings.setter
+  def state_dict_mappings(self, value):
+    self._state_dict_mappings = value
+
   ######## Preprocessors ###############################################################################################
 
   def _preprocess_config(self, config_filename):
@@ -278,6 +289,8 @@ class Experiment:
       config.checkpoints.suffix = '.pth.tar'
     if not hasattr(config.checkpoints, 'stats_filename'):
       config.checkpoints.stats_filename = 'stats.yml'
+    if not hasattr(config, 'state_dict_mappings'):
+      config.checkpoints.state_dict_mappings = []
 
     # Default logs configurations
     if not hasattr(config, 'logs'):
@@ -465,6 +478,7 @@ class Experiment:
       checkpoint = load_checkpoint(
         checkpoint_path,
         self.model,
+        self.state_dict_mappings,
         load_optimizer=load_optimizer, 
         optimizer=self.optimizer
       )
