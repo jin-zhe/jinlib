@@ -166,7 +166,7 @@ def save_checkpoint(file_path: Path, checkpoint: dict):
     os.mkdir(str(dir_path.resolve()))
   torch.save(checkpoint, file_path)
 
-def load_model_state(model: torch.nn.Module, state_dict: dict, state_dict_mappings: list, state_key: str = 'model_state'):
+def load_model_state(model: torch.nn.Module, state_dict: dict, state_dict_mappings: list, ignore_missing_keys=False, state_key: str = 'model_state'):
   '''
   Loads model with given state_dict.
   Args:
@@ -183,7 +183,7 @@ def load_model_state(model: torch.nn.Module, state_dict: dict, state_dict_mappin
     else:
       logging.warning('Key \"{}\" not found in model state dict!'.format(key_old))
 
-  model.load_state_dict(model_state_dict)
+  model.load_state_dict(model_state_dict, strict=not ignore_missing_keys)
   model.to(choose_device())
 
 def load_optimizer_state(optimizer: torch.optim.Optimizer, state_dict: dict, state_key='optim_state'):
@@ -210,7 +210,7 @@ def load_optimizer_state(optimizer: torch.optim.Optimizer, state_dict: dict, sta
   if converted:
     logging.info('Converted loaded optimizer state_dict tensors from {} to {}.'.format(src_device, dst_device))
 
-def load_checkpoint(ckpt_path: Path, model: torch.nn.Module, state_dict_mappings: list, load_optimizer: bool = True, optimizer: torch.optim.Optimizer = None):
+def load_checkpoint(ckpt_path: Path, model: torch.nn.Module, state_dict_mappings: list, ignore_missing_keys=False, load_optimizer: bool = True, optimizer: torch.optim.Optimizer = None):
   '''
   Loads state_dict from ckpt_path. If also indicated to load optimizer (default)
   and optimization object is provided, loads state_dict of optimizer assuming it
@@ -219,6 +219,7 @@ def load_checkpoint(ckpt_path: Path, model: torch.nn.Module, state_dict_mappings
     ckpt_path: (string) file path of checkpoint to be loaded
     model: (torch.nn.Module) model for which the parameters are loaded
     state_dict_mappings: (list) list of (old key, new key) pairs to translate in the state_dict keys
+    ignore_missing_keys: (bool) whether or not to ignore missing keys and give them default initializations
     load_optimizer: (bool) flag for loading optimizer (default True)
     optimizer: (torch.optim.Optimizer) optimizer whose state is to be loaded if `load_optimizer` is set to True
   '''  
@@ -226,7 +227,7 @@ def load_checkpoint(ckpt_path: Path, model: torch.nn.Module, state_dict_mappings
     raise FileNotFoundError("Checkpoint doesn't exist! {}".format(str(ckpt_path.resolve())))
 
   state_dict = torch.load(str(ckpt_path.resolve()))
-  load_model_state(model, state_dict, state_dict_mappings)
+  load_model_state(model, state_dict, state_dict_mappings, ignore_missing_keys=ignore_missing_keys)
   if load_optimizer:
     if optimizer is None:
       raise ArgumentError('load_optimizer flag is {} but optimizer is {}!'.format(load_optimizer, type(optimizer).__name__))
