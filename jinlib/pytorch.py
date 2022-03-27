@@ -1,5 +1,6 @@
 from argparse import ArgumentError
 from pathlib import Path
+from typing import Any
 import logging
 import copy
 import os
@@ -26,7 +27,7 @@ def freeze(net):
   for param in parameters:
     param.requires_grad = False
 
-def get_nn(name: str, kwargs: dict):
+def get_nn(name: str, **kwargs):
   '''
   Return torch.nn attribute
   '''
@@ -36,33 +37,33 @@ def get_nn(name: str, kwargs: dict):
   else:
     raise AttributeError('Attribute \'{}\' does not exist in torch.nn!'.format(name))
 
-def get_activation(choice: str, kwargs: dict):
+def get_activation(choice: str, **kwargs):
   '''
   Return activation of choice
   Semantic wrapper for `get_nn`
   '''
   try:
-    return get_nn(choice, kwargs)
+    return get_nn(choice, **kwargs)
   except AttributeError:
     raise ValueError('Unknown activation choice \'{}\'!'.format(choice))
 
-def get_layer(choice: str, kwargs: dict):
+def get_layer(choice: str, **kwargs):
   '''
   Return layer of choice
   Semantic wrapper for `get_nn`
   '''
   try:
-    return get_nn(choice, kwargs)
+    return get_nn(choice, **kwargs)
   except AttributeError:
     raise ValueError('Unknown layer choice \'{}\'!'.format(choice))
 
-def get_loss_fn(choice: str, kwargs: dict):
+def get_loss_fn(choice: str, **kwargs):
   '''
   Return the loss function of choice
   Semantic wrapper for `get_nn`
   '''
   try:
-    return get_nn(choice, kwargs)
+    return get_nn(choice, **kwargs)
   except AttributeError:
     raise ValueError('Unknown loss function choice \'{}\'!'.format(choice))
 

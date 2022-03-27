@@ -404,7 +404,7 @@ class Experiment:
   def _init_activation(self):
     self.activation = get_activation(
       self.config.activation.choice,
-      vars(self.config.activation.kwargs),
+      **vars(self.config.activation.kwargs),
     )
 
   def _init_optimizer(self):
@@ -426,7 +426,7 @@ class Experiment:
   def _init_loss_fn(self):
     self.loss_fn = get_loss_fn(
       self.config.loss.choice,
-      vars(self.config.loss.kwargs)
+      **vars(self.config.loss.kwargs)
     )
 
   def _init_input_dim(self):
