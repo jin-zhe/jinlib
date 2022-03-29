@@ -590,7 +590,7 @@ class Experiment:
   def record_hyperparams(self):
     self.recorder.add_hparams(
       {
-        'activation': self.config.activation.choice,
+        'activation': self.config.network.activation.choice,
         'optimization': self.config.optimization.choice,
         'loss_function': self.config.loss.choice,
         'batch_size': self.batch_size,

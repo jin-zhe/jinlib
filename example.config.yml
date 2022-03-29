@@ -2,9 +2,10 @@
 evaluation_metrics:         # [OPTIONAL] The metrics which will be calculated for every epoch
   - loss*                   # (DEFAULT VALUE) Can be omitted as loss is a compulsory metric. Asterisk indicates to set as criterion metric for selecting best epoch
   - accuracy                # Also computes accuracy for every batch
-activation:                 # Activation function
-  choice: ReLU              # Same name as function in in torch.nn
-  kwargs: {}                # Parameters for activation function call. {} to indicate PyTorch defaults
+network:
+  activation:               # Activation function
+    choice: ReLU            # Same name as function in in torch.nn
+    kwargs: {}              # Parameters for activation function call. {} to indicate PyTorch defaults
 optimization:               # Optimization function
   choice: SGD               # Same name as function in torch.optim
   kwargs:                   # Parameters for activation function call
