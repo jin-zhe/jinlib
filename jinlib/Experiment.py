@@ -403,8 +403,8 @@ class Experiment:
 
   def _init_activation(self):
     self.activation = get_activation(
-      self.config.activation.choice,
-      **vars(self.config.activation.kwargs),
+      self.config.network.activation.choice,
+      **vars(self.config.network.activation.kwargs),
     )
 
   def _init_optimizer(self):
