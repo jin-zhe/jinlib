@@ -1,6 +1,5 @@
 from datetime import datetime
 from pathlib import Path
-from glob import glob
 import urllib.request
 import logging
 import pickle

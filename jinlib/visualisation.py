@@ -1,9 +1,7 @@
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
-from pandas.io.sql import DatabaseError
 import seaborn as sns
 import pandas as pd
-import numpy as np
 
 from pathlib import Path
 
