@@ -145,6 +145,12 @@ def to_device(device, *tensors):
   out = [t.to(device) for t in tensors]
   return out[0] if len(out) == 1 else out
 
+def to_numpy(tensor: torch.Tensor):
+  '''
+  Returns a copy of the tensor in numpy array type
+  '''
+  return tensor.detach().cpu().numpy()
+
 def copy_params(model):
   '''
   Performs deep copy of model parameters and return
