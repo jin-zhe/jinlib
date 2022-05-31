@@ -1,11 +1,12 @@
 from argparse import ArgumentError
 from pathlib import Path
-from typing import Any
 import logging
+import random
 import copy
 import os
 
 from sklearn.model_selection import train_test_split
+import numpy as np
 import torchvision
 
 from torch.utils.data import DataLoader
@@ -126,8 +127,16 @@ def batch_as_figure(T_samples, title):
   figure = T_grid.permute(1, 2, 0).int().numpy()
   return figure
 
-def set_rand_seed(seed=42):
+def seed_everything(seed=42):
+  random.seed(seed)
+  np.random.seed(seed)
   torch.manual_seed(seed)
+  torch.cuda.manual_seed_all(seed)
+  torch.manual_seed(seed)
+
+def set_deterministic(seed=42):
+  torch.backends.cudnn.deterministic = True
+  seed_everything(seed)
 
 def to_device(device, *tensors):
   '''
