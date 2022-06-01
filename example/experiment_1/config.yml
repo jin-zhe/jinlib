@@ -4,7 +4,6 @@ evaluation_metrics:
   - accuracy*   # asterisk indicates to select as criterion metric for selecting best epoch
 activation:
   choice: ReLU
-  kwargs: {}
 optimization:
   choice: SGD
   kwargs:
@@ -16,4 +15,11 @@ loss:
 regularization:
 batch_size: 4
 num_epochs: 5
+wandb:
+  init:
+    project: jinlib-example-1
+    id: resumable-example
+  watch:
+    log: all
+    log_freq: 10
 remarks: This experiment setting follows that of https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html
