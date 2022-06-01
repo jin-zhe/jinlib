@@ -37,12 +37,12 @@ class Configuration():
     # Base case
     if len(key_hierarchy) == 1:
       if not hasattr(config, key):
-        config.key = value
+        setattr(config, key, value)
     else:
       top_key = key_hierarchy[0]
       if not hasattr(config,top_key):
         setattr(config, top_key, SimpleNamespace())
-      Configuration.ensure_default(getattr(config,top_key), '.'.join(key[1:]), value)
+      Configuration.ensure_default(getattr(config,top_key), '.'.join(key_hierarchy[1:]), value)
 
   @staticmethod
   def to_obj(value):

@@ -2,10 +2,11 @@
 evaluation_metrics:
   - loss*
   - accuracy
-activation:
-  choice: LeakyReLU
-  kwargs:
-    negative_slope: 0.01
+network:
+  activation:
+    choice: LeakyReLU
+    kwargs:
+      negative_slope: 0.01
 optimization:
   choice: Adam
   kwargs:

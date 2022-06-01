@@ -2,8 +2,9 @@
 evaluation_metrics:
   - loss        # can be omitted as loss is a compulsory metric
   - accuracy*   # asterisk indicates to select as criterion metric for selecting best epoch
-activation:
-  choice: ReLU
+network:
+  activation:
+    choice: ReLU
 optimization:
   choice: SGD
   kwargs:
@@ -19,6 +20,7 @@ wandb:
   init:
     project: jinlib-example-1
     id: resumable-example
+    resume: allow
   watch:
     log: all
     log_freq: 10
