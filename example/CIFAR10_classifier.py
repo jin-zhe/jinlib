@@ -49,7 +49,7 @@ class CIFAR10Classifier(Experiment):
     self.model = Net(activation=self.activation)
 
   def _init_dataset(self):
-    download_root = '/data'
+    download_root = './data'
     train_dataset = torchvision.datasets.CIFAR10(
       root=download_root, train=True, download=True, transform=self.transforms)
     validation_dataset = torchvision.datasets.CIFAR10(
@@ -97,4 +97,3 @@ def main():
   exp2.analyze()
 
 if __name__ == '__main__': main()
-
