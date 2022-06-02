@@ -32,19 +32,6 @@ class Configuration():
     self.__dict__.update(obj.__dict__)
 
   @staticmethod
-  def ensure_default(config, key, value):
-    key_hierarchy = key.split('.')
-    # Base case
-    if len(key_hierarchy) == 1:
-      if not hasattr(config, key):
-        config.key = value
-    else:
-      top_key = key_hierarchy[0]
-      if not hasattr(config,top_key):
-        setattr(config, top_key, SimpleNamespace())
-      Configuration.ensure_default(getattr(config,top_key), '.'.join(key[1:]), value)
-
-  @staticmethod
   def to_obj(value):
     '''Deep conversion of dict into obj using SimpleNamespace'''
     if type(value) is dict:         # if dict

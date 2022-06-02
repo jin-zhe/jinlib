@@ -17,10 +17,4 @@ regularization:
   L2: 0.001
 batch_size: 128
 num_epochs: 5
-wandb:
-  init:
-    project: jinlib-example-2
-  watch:
-    log: all
-    log_freq: 10
-remarks: Alternative choice of activation, optimization and hyperparameters
+remarks: Alternative choice off activation, optimization and hyperparameters

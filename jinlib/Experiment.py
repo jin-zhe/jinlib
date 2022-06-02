@@ -1,5 +1,5 @@
+from torch.utils.tensorboard import SummaryWriter
 import torch
-import wandb
 from torchsummary import summary
 from tabulate import tabulate
 
@@ -11,7 +11,7 @@ import shutil
 
 from .pytorch import choose_device, get_activation, get_loss_fn, get_optimizer, load_checkpoint, save_checkpoint, to_device
 from .general import config_path, dp4, save_yaml, set_logger
-from .Configuration import Configuration as Cfg
+from .Configuration import Configuration
 from .RunningAverage import RunningAverage
 from types import SimpleNamespace
 from .Stopwatch import Stopwatch
@@ -27,6 +27,7 @@ class Experiment:
     self._evaluation_metrics = None
     self._criterion_metric = None
     self._logger = None
+    self._recorder = None
     self._model = None
     self._activation = None
     self._optimizer = None
@@ -92,6 +93,16 @@ class Experiment:
   @logger.setter
   def logger(self, value):
     self._logger = value
+
+  @property
+  def recorder(self):
+    if self._recorder is None:
+      self._init_recorder()
+    return self._recorder
+
+  @recorder.setter
+  def recorder(self, value):
+    self._recorder = value
 
   @property
   def model(self):
@@ -263,26 +274,39 @@ class Experiment:
     '''
     Fill up optional configurations with default values
     '''
-    config = Cfg(config_path(self.experiment_dir, filename=config_filename))
+    config = Configuration(config_path(self.experiment_dir, filename=config_filename))
 
     # Default checkpoints configurations
-    Cfg.ensure_default(config, 'checkpoints.dir', str(self.experiment_dir.resolve()))
-    Cfg.ensure_default(config, 'checkpoints.best_prefix', 'best')
-    Cfg.ensure_default(config, 'checkpoints.last_prefix', 'last')
-    Cfg.ensure_default(config, 'checkpoints.suffix', '.pth.tar')
-    Cfg.ensure_default(config, 'checkpoints.stats_filename', 'stats.yml')
-    Cfg.ensure_default(config, 'checkpoints.state_dict_mappings', [])
+    if not hasattr(config, 'checkpoints'):
+      config.checkpoints = SimpleNamespace()
+    if not hasattr(config.checkpoints, 'dir'):
+      config.checkpoints.dir = str(self.experiment_dir.resolve())
+    if not hasattr(config.checkpoints, 'best_prefix'):
+      config.checkpoints.best_prefix = 'best'
+    if not hasattr(config.checkpoints, 'last_prefix'):
+      config.checkpoints.last_prefix = 'last'
+    if not hasattr(config.checkpoints, 'suffix'):
+      config.checkpoints.suffix = '.pth.tar'
+    if not hasattr(config.checkpoints, 'stats_filename'):
+      config.checkpoints.stats_filename = 'stats.yml'
+    if not hasattr(config.checkpoints, 'state_dict_mappings'):
+      config.checkpoints.state_dict_mappings = []
 
     # Default logs configurations
-    Cfg.ensure_default(config, 'logs.logger', 'log.log')
-    Cfg.ensure_default(config, 'logs.tensorboard', 'TB_logdir')
-    Cfg.ensure_default(config, 'wandb.init', SimpleNamespace())
+    if not hasattr(config, 'logs'):
+      config.logs = SimpleNamespace()
+    if not hasattr(config.logs, 'logger'):
+      config.logs.logger = 'log.log'
+    if not hasattr(config.logs, 'tensorboard'):
+      config.logs.tensorboard = 'TB_logdir'
 
     # Default evaluation_metrics configuration
-    Cfg.ensure_default(config, 'evaluation_metrics', ['loss'])
+    if not hasattr(config, 'evaluation_metrics'):
+      config.evaluation_metrics = ['loss']
 
     # Default regularisation configuration
-    Cfg.ensure_default(config, 'regularization', None)
+    if not hasattr(config, 'regularization'):
+      config.regularization = None
 
     return config
   ######## Initializations #############################################################################################
@@ -308,6 +332,9 @@ class Experiment:
   def _init_logger(self):
     set_logger(self.experiment_dir, log_filename=self.config.logs.logger)
     self.logger = logging.info
+
+  def _init_recorder(self):
+    self.recorder = SummaryWriter(str(self.experiment_dir / self.config.logs.tensorboard))
 
   def _init_epoch_stats(self):
     '''
@@ -405,15 +432,6 @@ class Experiment:
   def _init_input_dim(self):
     images, _ = next(iter(self.train_loader))  
     self.input_dim = images[0].size()
-
-  def _init_wandb(self):
-    init_kwargs = self.config.wandb.init
-    init_kwargs.notes = self.config.remarks
-    init_kwargs.config = self.get_hyperparams()
-    wandb.init(**vars(init_kwargs))
-    watch_kwargs = vars(self.config.wandb.watch)
-    watch_kwargs.criterion = self.loss_fn
-    wandb.watch(**vars(watch_kwargs))
 
   ######## Checkpoint related ##########################################################################################
 
@@ -559,23 +577,30 @@ class Experiment:
     self._update_curr_epoch_stats('validation')
 
   ######## Logging  ####################################################################################################
-  def get_hyperparams(self):
-    return {
-      'activation': Cfg.to_dict(self.config.network.activation),
-      'optimization': Cfg.to_dict(self.config.optimization),
-      'loss_function': Cfg.to_dict(self.config.loss),
-      'batch_size': self.batch_size,
-      'epochs': self.num_epochs
-    }
 
   def record_progress(self):
-    data = {}
     for context in ['train', 'validation']:
-      data[context] = {}
       for metric in self.evaluation_metrics:
-        data[context][f'{context}-{metric}'] = self.curr_epoch_stats[context][metric]
-    data['epoch'] = self.curr_epoch_stats['epoch']
-    wandb.log(data)
+        self.recorder.add_scalar(
+          '{}/{}'.format(metric.capitalize(),context),
+          self.curr_epoch_stats[context][metric],
+          self.curr_epoch_stats['epoch']
+        )
+
+  def record_hyperparams(self):
+    self.recorder.add_hparams(
+      {
+        'activation': self.config.network.activation.choice,
+        'optimization': self.config.optimization.choice,
+        'loss_function': self.config.loss.choice,
+        'batch_size': self.batch_size,
+        'epochs': self.num_epochs
+      },
+      {
+        'hparam/best_validation_loss': self.best_epoch_stats['validation']['loss'],
+        'hparam/best_stats': self.best_epoch_stats['epoch']
+      }
+    )
 
   def format_performance(self, value, metric):
     unit = ''
@@ -739,7 +764,6 @@ class Experiment:
     
     self.print_model()
     self.logger(self.model)
-    self._init_wandb()
     self.log_training_commencement()
     elapsed = Stopwatch()
     self._batched_procedure(True, self.train_loader, self.num_epochs, self._train_epoch_begin, self._train_epoch_end)
