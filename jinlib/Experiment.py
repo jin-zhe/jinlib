@@ -767,7 +767,7 @@ class Experiment:
     self.log_training_commencement()
     elapsed = Stopwatch()
     self._batched_procedure(True, self.train_loader, self.num_epochs, self._train_epoch_begin, self._train_epoch_end)
-    self.log_training_completion(elapsed())
+    self.log_training_completion(Stopwatch.format_time(elapsed()))
     self.record_hyperparams()
 
   def validation(self, load_best=False):
