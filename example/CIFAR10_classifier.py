@@ -38,6 +38,7 @@ class Net(nn.Module):
 class CIFAR10Classifier(Experiment):
   def __init__(self, experiment_dir):
     super().__init__(experiment_dir)
+    self.dataset_root_dir = './data' # Update as needed
     self.transforms = transforms.Compose(
       [transforms.ToTensor(),
       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
@@ -49,11 +50,10 @@ class CIFAR10Classifier(Experiment):
     self.model = Net(activation=self.activation)
 
   def _init_dataset(self):
-    download_root = './data'
     train_dataset = torchvision.datasets.CIFAR10(
-      root=download_root, train=True, download=True, transform=self.transforms)
+      root=self.dataset_root_dir, train=True, download=True, transform=self.transforms)
     validation_dataset = torchvision.datasets.CIFAR10(
-      root=download_root, train=False, download=True, transform=self.transforms)
+      root=self.dataset_root_dir, train=False, download=True, transform=self.transforms)
     self.dataset = SimpleNamespace(train=train_dataset, validation=validation_dataset)
 
   def _init_dataloaders(self):
@@ -90,7 +90,7 @@ def main():
   exp1 = CIFAR10Classifier(Path('experiment_1'))
   exp1.train()            # train for 5 epochs (see experiment config file)
   exp1.train(resume=True) # train for another 5 epochs, resuming from best checkpoint
-  exp1.analyze()          # analyze based on best checkpoint
+  exp1.analyze()          # analyze based on based checkpoint
 
   exp2 = CIFAR10Classifier(Path('experiment_2'))
   exp2.train()
