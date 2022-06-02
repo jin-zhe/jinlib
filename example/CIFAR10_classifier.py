@@ -1,4 +1,5 @@
 from jinlib.visualisation import plot_classwise_accuracies, plot_confusion_matrix
+from jinlib.pytorch import set_deterministic
 from jinlib import Experiment
 
 from torch.utils.data import DataLoader
@@ -37,6 +38,7 @@ class Net(nn.Module):
 class CIFAR10Classifier(Experiment):
   def __init__(self, experiment_dir):
     super().__init__(experiment_dir)
+    self.dataset_root_dir = './data' # Update as needed
     self.transforms = transforms.Compose(
       [transforms.ToTensor(),
       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
@@ -49,9 +51,9 @@ class CIFAR10Classifier(Experiment):
 
   def _init_dataset(self):
     train_dataset = torchvision.datasets.CIFAR10(
-      root='./data', train=True, download=True, transform=self.transforms)
+      root=self.dataset_root_dir, train=True, download=True, transform=self.transforms)
     validation_dataset = torchvision.datasets.CIFAR10(
-      root='./data', train=False, download=True, transform=self.transforms)
+      root=self.dataset_root_dir, train=False, download=True, transform=self.transforms)
     self.dataset = SimpleNamespace(train=train_dataset, validation=validation_dataset)
 
   def _init_dataloaders(self):
@@ -84,6 +86,7 @@ class CIFAR10Classifier(Experiment):
     plot_classwise_accuracies(self.classes, cls_acc, self.experiment_dir)
 
 def main():
+  set_deterministic()
   exp1 = CIFAR10Classifier(Path('experiment_1'))
   exp1.train()            # train for 5 epochs (see experiment config file)
   exp1.train(resume=True) # train for another 5 epochs, resuming from best checkpoint
