@@ -23,7 +23,6 @@ class Experiment:
     self.config = self._preprocess_config(config_filename)
     
     # Attribute defaults before initializations
-    self._device = None
     self._context = None              # currently only used for resume method
     self._evaluation_metrics = None
     self._criterion_metric = None
@@ -50,17 +49,6 @@ class Experiment:
 
   ######## Getters/setters #############################################################################################
   @property
-  def device(self):
-    if self._device is None:
-      self._init_device()
-    else:
-      return self._device
-
-  @device.setter
-  def device(self, value):
-    self._device = value
-
-  @property
   def context(self):
     return self._context
   
@@ -80,7 +68,7 @@ class Experiment:
   @evaluation_metrics.setter
   def evaluation_metrics(self, value):
     for metric in value:
-      if not hasattr(self, f'compute_batch_{metric}'):
+      if not hasattr(self, 'compute_batch_'+metric):
         raise ValueError('"{m}" indicated as an evaluation metric but function `compute_batch_{m}` is not defined!'.format(m=metric))
     self._evaluation_metrics = value
 
@@ -109,7 +97,6 @@ class Experiment:
   def model(self):
     if self._model is None:
       self._init_model()
-      self._model.to(self.device)
     return self._model
 
   @model.setter
@@ -278,12 +265,6 @@ class Experiment:
     '''
     config = Cfg(config_path(self.experiment_dir, filename=config_filename))
 
-    # Defualt activation configurations
-    Cfg.ensure_default(config, 'network.activation.kwargs', SimpleNamespace())
-
-    # Default optimization configurations
-    Cfg.ensure_default(config, 'optimization.kwargs', SimpleNamespace())
-
     # Default checkpoints configurations
     Cfg.ensure_default(config, 'checkpoints.dir', str(self.experiment_dir.resolve()))
     Cfg.ensure_default(config, 'checkpoints.best_prefix', 'best')
@@ -302,14 +283,9 @@ class Experiment:
 
     # Default regularisation configuration
     Cfg.ensure_default(config, 'regularization', None)
-    
-    return config
 
+    return config
   ######## Initializations #############################################################################################
-  
-  def _init_device(self):
-    self.device = choose_device()
-    self.logger(f'Device {self.device} choosen!')
 
   def _init_evaluation_metrics(self):
     # preprocess
@@ -433,12 +409,11 @@ class Experiment:
   def _init_wandb(self):
     init_kwargs = self.config.wandb.init
     init_kwargs.notes = self.config.remarks
-    init_kwargs.config = Cfg.to_dict(self.config)
+    init_kwargs.config = self.get_hyperparams()
     wandb.init(**vars(init_kwargs))
-    watch_kwargs = self.config.wandb.watch
-    watch_kwargs.models = self.model
+    watch_kwargs = vars(self.config.wandb.watch)
     watch_kwargs.criterion = self.loss_fn
-    #wandb.watch(**vars(watch_kwargs))
+    wandb.watch(**vars(watch_kwargs))
 
   ######## Checkpoint related ##########################################################################################
 
@@ -598,7 +573,7 @@ class Experiment:
     for context in ['train', 'validation']:
       data[context] = {}
       for metric in self.evaluation_metrics:
-        data[context][metric] = self.curr_epoch_stats[context][metric]
+        data[context][f'{context}-{metric}'] = self.curr_epoch_stats[context][metric]
     data['epoch'] = self.curr_epoch_stats['epoch']
     wandb.log(data)
 
@@ -732,7 +707,7 @@ class Experiment:
         self.model.train()
 
       for i, batch in enumerate(dataloader, 0):
-        batch = to_device(self.device, *batch)
+        batch = to_device(choose_device(), *batch)
         if train_mode:
           self.optimizer.zero_grad()  # zeroise parameter gradients
         T_out = self._output_batch(batch)
@@ -759,7 +734,7 @@ class Experiment:
     if resume:
       self.resume()
     else:
-      self.model.to(self.device)
+      self.model.to(choose_device())
       self._init_epoch_stats()
     
     self.print_model()
@@ -769,6 +744,7 @@ class Experiment:
     elapsed = Stopwatch()
     self._batched_procedure(True, self.train_loader, self.num_epochs, self._train_epoch_begin, self._train_epoch_end)
     self.log_training_completion(elapsed())
+    self.record_hyperparams()
 
   def validation(self, load_best=False):
     '''
