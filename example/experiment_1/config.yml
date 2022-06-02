@@ -2,9 +2,10 @@
 evaluation_metrics:
   - loss        # can be omitted as loss is a compulsory metric
   - accuracy*   # asterisk indicates to select as criterion metric for selecting best epoch
-activation:
-  choice: ReLU
-  kwargs: {}
+network:
+  activation:
+    choice: ReLU
+    kwargs: {}
 optimization:
   choice: SGD
   kwargs:
