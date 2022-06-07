@@ -13,14 +13,16 @@ optimization:
     lr: 0.001
 loss:
   choice: CrossEntropyLoss
-  kwargs: {}
+transforms:
+  mean: [0.5, 0.5, 0.5]
+  std: [0.5, 0.5, 0.5]
 regularization:
   L2: 0.001
 batch_size: 128
 num_epochs: 5
 wandb:
   init:
-    project: jinlib-example-2
+    project: jinlib
   watch:
     log: all
     log_freq: 10

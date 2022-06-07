@@ -145,11 +145,24 @@ def to_device(device, *tensors):
   out = [t.to(device) for t in tensors]
   return out[0] if len(out) == 1 else out
 
-def to_numpy(tensor: torch.Tensor):
+def to_numpy(*tensors: torch.Tensor):
   '''
   Returns a copy of the tensor in numpy array type
   '''
-  return tensor.detach().cpu().numpy()
+  return apply_numpy(*apply_cpu(*apply_detach(*tensors)))
+
+def apply_numpy(*tensors: torch.Tensor):
+  return apply_op('numpy', *tensors)
+
+def apply_cpu(*tensors: torch.Tensor):
+  return apply_op('cpu', *tensors)
+
+def apply_detach(*tensors: torch.Tensor):
+  return apply_op('detach', *tensors)
+
+def apply_op(method: str, *tensors: torch.Tensor):
+  out = [getattr(t, method)() for t in tensors]
+  return out[0] if len(out) == 1 else out
 
 def copy_params(model):
   '''
@@ -252,15 +265,8 @@ def load_checkpoint(ckpt_path: Path, model: torch.nn.Module, state_dict_mappings
     logging.info('Not loading optimizer.')
   return state_dict
 
-def denormalize(T_image, mean, std):
-  """
-  Undo normalization and return denormalized image (usually for visual checking).
-  Args:
-    tensor (Tensor): Tensor image of size (C, H, W) to be unnormalized.
-    mean: Mean of size (C,1) used in forward transform
-    std: Standard deviation of size (C,1) used in forward transform
-  """
-  return torchvision.transforms.Normalize(
-    mean=[-mean[0]/std[0], -mean[1]/std[1], -mean[2]/std[2]],
-    std=[1/std[0], 1/std[1], 1/std[2]]
-  )(T_image)
+def to_np_image(image_tensor):
+  '''
+  Converts a single image tensor to numpy format
+  '''
+  return to_numpy(image_tensor.permute(1,2,0))

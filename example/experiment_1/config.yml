@@ -12,15 +12,16 @@ optimization:
     momentum: 0.9
 loss:
   choice: CrossEntropyLoss
-  kwargs: {}
-regularization:
+transforms:
+  mean: [0.5, 0.5, 0.5]
+  std: [0.5, 0.5, 0.5]
 batch_size: 4
 num_epochs: 5
 wandb:
   init:
-    project: jinlib-example-1
-    id: resumable-example
-    resume: allow
+    project: jinlib
+    id: experiment_1
+    resume: 'allow'
   watch:
     log: all
     log_freq: 10

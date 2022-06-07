@@ -46,7 +46,7 @@ class Experiment:
     self._state_dict_mappings = None
     self.curr_epoch_stats = None
     self.best_epoch_stats = None
-    self.curr_iter_stats = None
+    self.curr_batch_stats = None
 
   ######## Getters/setters #############################################################################################
   @property
@@ -68,7 +68,7 @@ class Experiment:
   def context(self, value):
     self._context = value
 
-  def reset_context(self):
+  def _reset_context(self):
     self.context = None
 
   @property
@@ -284,6 +284,9 @@ class Experiment:
     # Default optimization configurations
     Cfg.ensure_default(config, 'optimization.kwargs', SimpleNamespace())
 
+    # Default loss configurations
+    Cfg.ensure_default(config, 'loss.kwargs', SimpleNamespace())
+
     # Default checkpoints configurations
     Cfg.ensure_default(config, 'checkpoints.dir', str(self.experiment_dir.resolve()))
     Cfg.ensure_default(config, 'checkpoints.best_prefix', 'best')
@@ -292,10 +295,14 @@ class Experiment:
     Cfg.ensure_default(config, 'checkpoints.stats_filename', 'stats.yml')
     Cfg.ensure_default(config, 'checkpoints.state_dict_mappings', [])
 
-    # Default logs configurations
+    # Default remarks
+    Cfg.ensure_default(config, 'remarks', '')
+
+    # Default logging/tracking configurations
     Cfg.ensure_default(config, 'logs.logger', 'log.log')
-    Cfg.ensure_default(config, 'logs.tensorboard', 'TB_logdir')
     Cfg.ensure_default(config, 'wandb.init', SimpleNamespace())
+    Cfg.ensure_default(config, 'wandb.init.reinit', True)
+    Cfg.ensure_default(config, 'wandb.init.notes', config.remarks)
 
     # Default evaluation_metrics configuration
     Cfg.ensure_default(config, 'evaluation_metrics', ['loss'])
@@ -333,6 +340,15 @@ class Experiment:
     set_logger(self.experiment_dir, log_filename=self.config.logs.logger)
     self.logger = logging.info
 
+  def _init_tracker(self):
+    wandb_config = self.config.wandb
+    init_kwargs = Cfg.to_dict(wandb_config.init)
+    init_kwargs['config'] = wandb.helper.parse_config(Cfg.to_dict(self.config), exclude=('wandb',))
+    wandb.init(**init_kwargs)
+
+  def _end_tracker(self):
+    wandb.finish()
+
   def _init_epoch_stats(self):
     '''
     Initializes the stats for current *training* epoch (i.e. does not apply to validation/test etc)
@@ -349,17 +365,17 @@ class Experiment:
         }
     }
     '''
-    self.curr_epoch_stats = {'epoch': 0, 'train': {}, 'validation': {}}
+    self.curr_epoch_stats = {'epoch': 1, 'train': {}, 'validation': {}}
     for metric in self.evaluation_metrics:
       self.curr_epoch_stats['train'][metric] = None
       self.curr_epoch_stats['validation'][metric] = None
 
-  def _init_iter_stats(self):
+  def _init_batch_stats(self):
     '''
     Initializes the stats for current iteration. To be called at the start of
     every epoch to reset.
 
-    self.curr_iter_stats = {
+    self.curr_batch_stats = {
       'loss': {
         'current': None,
         'running': RunningAverage(),
@@ -367,9 +383,9 @@ class Experiment:
       # And other metrics in `self.evaluation_metrics`
     }
     '''
-    self.curr_iter_stats = {}
+    self.curr_batch_stats = {}
     for metric in self.evaluation_metrics:
-      self.curr_iter_stats[metric] = {
+      self.curr_batch_stats[metric] = {
         'current': None,              # Current metric value at each iteration
         'running': RunningAverage()   # Running average at each iteration
       }
@@ -429,16 +445,6 @@ class Experiment:
   def _init_input_dim(self):
     images, _ = next(iter(self.train_loader))  
     self.input_dim = images[0].size()
-
-  def _init_wandb(self):
-    init_kwargs = self.config.wandb.init
-    init_kwargs.notes = self.config.remarks
-    init_kwargs.config = Cfg.to_dict(self.config)
-    wandb.init(**vars(init_kwargs))
-    watch_kwargs = self.config.wandb.watch
-    watch_kwargs.models = self.model
-    watch_kwargs.criterion = self.loss_fn
-    #wandb.watch(**vars(watch_kwargs))
 
   ######## Checkpoint related ##########################################################################################
 
@@ -503,7 +509,7 @@ class Experiment:
       self.curr_epoch_stats = checkpoint['curr_epoch_stats']
       self.best_epoch_stats = checkpoint['best_epoch_stats']
       self.logger('Resuming from epoch {}'.format(self.curr_epoch_stats['epoch']))
-      if self.context == 'train':
+      if self.is_train_context():
         self.curr_epoch_stats['epoch'] += 1
       return checkpoint
     else:
@@ -511,13 +517,13 @@ class Experiment:
 
   ######## Metric computation and update ###############################################################################
 
-  def compute_batch_loss(self, T_out, batch):
-    return self.loss_fn(T_out, self.batch_y(batch))
+  def compute_batch_loss(self, batch_in, batch_out):
+    return self.loss_fn(batch_out, self.batch_y(batch_in))
 
-  def compute_batch_accuracy(self, T_out, batch):
-    batch_size = T_out.size(0)
-    _, T_predictions = torch.max(T_out, 1)
-    return torch.sum(T_predictions == self.batch_y(batch).data) / batch_size
+  def compute_batch_accuracy(self, batch_in, batch_out):
+    batch_size = batch_out.size(0)
+    _, batch_predictions = torch.max(batch_out, 1)
+    return torch.sum(batch_predictions == self.batch_y(batch_in).data) / batch_size
 
   def loss_comparator(self, curr_loss, past_loss):
     '''
@@ -545,19 +551,19 @@ class Experiment:
     if self.best_epoch_stats is None or self.is_new_best():
       self.best_epoch_stats = deepcopy(self.curr_epoch_stats)
 
-  def _update_iter_stats(self, T_out, batch):
+  def _update_batch_stats(self, batch_in, batch_out):
     '''
     DO NOT OVERRIDE! EXTEND AS NEEDED!
     This method defines which calculations are to be done for every batch and
     what iteration states are to be updated/accumulated. It will compute
     every metric listed in `self.evaluation_metrics` and update
-    `self.curr_iter_stats`. Extend for specifying additional batch-specific
+    `self.curr_batch_stats`. Extend for specifying additional batch-specific
     computations and data to withhold across iterations in an epoch.
 
     Args:
-      T_out: (torch.tensor) model output from the given batch
-      batch: (list) list of tensors returned by a `next()` call on dataloader
+      batch_in: (list) list of tensors returned by a `next()` call on dataloader
             iteratble
+      batch_out: (torch.tensor) model output from the given batch
     Notes:
       - `batch_size` here refers to the batch size pertaining to this iteration.
       It *may not* be the same as `self.batch_size` such as in the case of the
@@ -567,15 +573,15 @@ class Experiment:
       - The return value for every metric computation method is a one-element
       tensor which returns its numerical value via the `.item()` call.
     '''
-    batch_size = T_out.size(0)
+    batch_size = batch_out.size(0)
     for metric in self.evaluation_metrics:
-      T_value = getattr(self, 'compute_batch_'+metric)(T_out, batch)
-      self.curr_iter_stats[metric]['current'] = T_value
-      self.curr_iter_stats[metric]['running'].update(T_value.item() * batch_size, batch_size)
+      value = getattr(self, 'compute_batch_'+metric)(batch_in, batch_out)
+      self.curr_batch_stats[metric]['current'] = value
+      self.curr_batch_stats[metric]['running'].update(value.item() * batch_size, batch_size)
 
   def _update_curr_epoch_stats(self, context):
-    for metric in self.curr_iter_stats:
-      self.curr_epoch_stats[context][metric] = self.curr_iter_stats[metric]['running']()
+    for metric in self.curr_batch_stats:
+      self.curr_epoch_stats[context][metric] = self.curr_batch_stats[metric]['running']()
 
   def _update_train_stats(self):
     self._update_curr_epoch_stats('train')
@@ -583,24 +589,31 @@ class Experiment:
   def _update_validation_stats(self):
     self._update_curr_epoch_stats('validation')
 
-  ######## Logging  ####################################################################################################
-  def get_hyperparams(self):
-    return {
-      'activation': Cfg.to_dict(self.config.network.activation),
-      'optimization': Cfg.to_dict(self.config.optimization),
-      'loss_function': Cfg.to_dict(self.config.loss),
-      'batch_size': self.batch_size,
-      'epochs': self.num_epochs
-    }
+  ######## Logging/Tracking ############################################################################################
 
-  def record_progress(self):
-    data = {}
+  def _track_train_begin(self):
+    wandb.define_metric("epoch")
     for context in ['train', 'validation']:
-      data[context] = {}
       for metric in self.evaluation_metrics:
-        data[context][metric] = self.curr_epoch_stats[context][metric]
-    data['epoch'] = self.curr_epoch_stats['epoch']
-    wandb.log(data)
+        wandb.define_metric(f'{context}/{metric}', step_metric='epoch')
+
+    if hasattr(self.config.wandb, 'watch'):
+      watch_kwargs = Cfg.to_dict(self.config.wandb.watch)
+      watch_kwargs['models'] = self.model
+      watch_kwargs['criterion'] = self.loss_fn
+      wandb.watch(**watch_kwargs)
+
+  def _track_epoch_stats(self):
+    for metric in self.evaluation_metrics:
+      value = self.curr_epoch_stats[self.context][metric]
+      curr_epoch = self.curr_epoch_stats['epoch']
+      wandb.log({f'{self.context}/{metric}': value, 'epoch': curr_epoch}, step=curr_epoch)
+
+  def _track_train_best(self):
+    wandb.run.summary['best/epoch'] = self.best_epoch_stats['epoch']
+    for context in ['train', 'validation']:
+      for metric in self.evaluation_metrics:
+        wandb.run.summary[f'best/{context}/{metric}'] = self.best_epoch_stats[context][metric]
 
   def format_performance(self, value, metric):
     unit = ''
@@ -609,7 +622,7 @@ class Experiment:
       value *= 100
     return dp4(value) + unit
 
-  def log_progress(self):
+  def _log_progress(self):
     is_curr_best = self.curr_epoch_stats == self.best_epoch_stats
     epoch_str = 'Epoch{} #{}'.format('*' if is_curr_best else ' ', self.curr_epoch_stats['epoch'])
     headers = [epoch_str] + [m.capitalize() for m in self.evaluation_metrics]
@@ -643,7 +656,7 @@ class Experiment:
     Need to set context again as it is reset at every end epoch routine by
     default. This is a recommended pattern to follow.
     '''
-    self.context = 'train'
+    self.set_train_context()
 
   def _train_epoch_end(self):
     '''
@@ -651,13 +664,14 @@ class Experiment:
     Routines for ending each epoch under train context.
     '''
     self._update_train_stats()
+    self._track_epoch_stats()
     self.validation()
     self._check_and_update_stats()
-    self.log_progress()
-    self.record_progress()
+    self._track_train_best()
+    self._log_progress()
     self.save()
     self.curr_epoch_stats['epoch'] += 1
-    self.reset_context()
+    self._reset_context()
   
   def _validation_epoch_begin(self):
     '''
@@ -666,7 +680,7 @@ class Experiment:
     Need to set context again as it is reset at every end epoch routine by
     default. This is a recommended pattern to follow.
     '''
-    self.context = 'validation'
+    self.set_validation_context()
 
   def _validation_epoch_end(self):
     '''
@@ -674,7 +688,8 @@ class Experiment:
     Routines for ending each epoch under validation context.
     '''
     self._update_validation_stats()
-    self.reset_context()
+    self._track_epoch_stats()
+    self._reset_context()
 
   def _test_epoch_begin(self):
     '''
@@ -683,14 +698,14 @@ class Experiment:
     Need to set context again as it is reset at every end epoch routine by
     default. This is a recommended pattern to follow.
     '''
-    self.context = 'test'
+    self.set_test_context()
 
   def _test_epoch_end(self):
     '''
     DO NOT OVERRIDE! EXTEND AS NEEDED!
     Routines for ending each epoch under test context.
     '''
-    self.reset_context()
+    self._reset_context()
 
   def _analyze_epoch_begin(self):
     '''
@@ -699,19 +714,19 @@ class Experiment:
     Need to set context again as it is reset at every end epoch routine by
     default. This is a recommended pattern to follow.
     '''
-    self.context = 'analyze'
+    self.set_analyze_context()
 
   def _analyze_epoch_end(self):
     '''
     DO NOT OVERRIDE! EXTEND AS NEEDED!
     Routines for ending each epoch under analyze context.
     '''
-    self.reset_context()
+    self._reset_context()
 
-  def _output_batch(self, batch):
-    return self.model(self.batch_x(batch))
+  def _output_batch(self, batch_in):
+    return self.model(self.batch_x(batch_in))
 
-  def _batched_procedure(self, train_mode, dataloader, max_steps, epoch_begin=None, epoch_end=None, step_choice="epoch"):
+  def _batched_procedure(self, train_mode, dataloader, max_steps, epoch_begin=None, epoch_end=None, step_choice='epoch'):
     '''
     Notes:
       `batch` is agnostic to your dataset which can return more than 2 for
@@ -727,19 +742,19 @@ class Experiment:
     while curr_step < max_steps:
       if epoch_begin is not None:
         epoch_begin()
-      self._init_iter_stats()   # reset stats at every epoch
+      self._init_batch_stats()   # reset stats at every epoch
       if train_mode:
         self.model.train()
 
-      for i, batch in enumerate(dataloader, 0):
-        batch = to_device(self.device, *batch)
+      for i, batch_in in enumerate(dataloader, 0):
+        batch_in = to_device(self.device, *batch_in)
         if train_mode:
           self.optimizer.zero_grad()  # zeroise parameter gradients
-        T_out = self._output_batch(batch)
-        self._update_iter_stats(T_out, batch)
-        T_loss = self.curr_iter_stats['loss']['current']
+        batch_out = self._output_batch(batch_in)
+        self._update_batch_stats(batch_in, batch_out)
+        batch_loss = self.curr_batch_stats['loss']['current']
         if train_mode:
-          T_loss.backward()           # calc gradients
+          batch_loss.backward()       # calc gradients
           self.optimizer.step()       # update params
         if step_choice == 'iteration':
           curr_step += 1
@@ -755,27 +770,28 @@ class Experiment:
       torch.set_grad_enabled(True)
 
   def train(self, resume=False):
-    self.context = 'train'
+    self.set_train_context()
+    self._init_tracker()
     if resume:
       self.resume()
     else:
-      self.model.to(self.device)
       self._init_epoch_stats()
     
     self.print_model()
     self.logger(self.model)
-    self._init_wandb()
+    self._track_train_begin()
     self.log_training_commencement()
     elapsed = Stopwatch()
     self._batched_procedure(True, self.train_loader, self.num_epochs, self._train_epoch_begin, self._train_epoch_end)
     self.log_training_completion(Stopwatch.format_time(*elapsed()))
+    self._end_tracker()
 
   def validation(self, load_best=False):
     '''
     Note that we do not normally load the best checkpoint because validation is
     a subroutine at the end of every training epoch.
     '''
-    self.context = 'validation'
+    self.set_validation_context()
     if load_best:
       self.load('best')
     self._batched_procedure(False, self.validation_loader, 1, self._validation_epoch_begin, self._validation_epoch_end)
@@ -785,25 +801,55 @@ class Experiment:
     To override/extend as needed but ensure context is set as it affects
     checkpoint loading.
     '''
-    self.context = 'test'
+    self.set_test_context()
+    self._init_tracker()
     self.load('best')
     self._batched_procedure(False, self.test_loader, 1, self._test_epoch_begin, self._test_epoch_end)
+    self._end_tracker()
 
   def analyze(self):
     '''
     To override/extend as needed but ensure context is set as it affects
     checkpoint loading.
     '''
-    self.context = 'analyze'
+    self.set_analyze_context()
+    self._init_tracker()
     self.load('best')
     self._batched_procedure(False, self.analyze_loader, 1, self._analyze_epoch_begin, self._analyze_epoch_end)
+    self._end_tracker()
+
+  ######## Helpers #####################################################################################################
+
+  def set_train_context(self):
+    self.context = 'train'
+
+  def is_train_context(self):
+    return self.context == 'train'
+
+  def set_validation_context(self):
+    self.context = 'validation'
+
+  def is_validation_context(self):
+    return self.context == 'validation'
+
+  def set_test_context(self):
+    self.context = 'test'
+
+  def is_test_context(self):
+    return self.context == 'test'
+
+  def set_analyze_context(self):
+    self.context = 'analyze'
+
+  def is_analyze_context(self):
+    return self.context == 'analyze'
 
   ######## Static helper methods #######################################################################################
 
   @staticmethod
-  def batch_x(batch):
-    return batch[0]  # samples default to first item in batch (recommended)
+  def batch_x(batch_in):
+    return batch_in[0]  # samples default to first item in batch (recommended)
 
   @staticmethod
-  def batch_y(batch):
-    return batch[1]  # labels default to second item in batch (recommended)
+  def batch_y(batch_in):
+    return batch_in[1]  # labels default to second item in batch (recommended)

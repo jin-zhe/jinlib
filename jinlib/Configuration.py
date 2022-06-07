@@ -47,9 +47,9 @@ class Configuration():
   @staticmethod
   def to_obj(value):
     '''Deep conversion of dict into obj using SimpleNamespace'''
-    if type(value) is dict:         # if dict
+    if isinstance(value, dict):     # if dict
       return SimpleNamespace(**{k: Configuration.to_obj(v) for k,v in value.items()})
-    elif type(value) is list:
+    elif isinstance(value, list):
       return [Configuration.to_obj(item) for item in value]
     else:
       return value
@@ -59,7 +59,9 @@ class Configuration():
     '''Deep conversion of object into dict'''
     if hasattr(value, '__dict__'):  # if object
       return Configuration.to_dict(value.__dict__)
-    elif type(value) is dict:       # if dict
+    elif isinstance(value, dict):   # if dict
       return {k: Configuration.to_dict(v) for k,v in value.items()}
+    elif isinstance(value, list):
+      return [Configuration.to_dict(v) for v in value]
     else:
       return value
